@@ -492,22 +492,31 @@ class PcosCheckResult {
 /// ---------------------------------------------------------------
 class EligibilityResultEntry {
   final String methodLabel;
-  final int category;
+
+  /// WHO MEC category 1-4, or null when the backend had no verified
+  /// rating for this method and deliberately declined to guess one.
+  final int? category;
+
+  /// Explanation shown when [category] is null ("not yet assessed").
+  final String? note;
 
   const EligibilityResultEntry({
     required this.methodLabel,
     required this.category,
+    this.note,
   });
 
   Map<String, dynamic> toJson() => {
     'method_label': methodLabel,
     'category': category,
+    'note': note,
   };
 
   factory EligibilityResultEntry.fromJson(Map<String, dynamic> json) {
     return EligibilityResultEntry(
       methodLabel: json['method_label'] as String,
-      category: json['category'] as int,
+      category: (json['category'] as num?)?.toInt(),
+      note: json['note'] as String?,
     );
   }
 }

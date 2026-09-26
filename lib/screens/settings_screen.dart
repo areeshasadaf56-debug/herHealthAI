@@ -368,7 +368,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Sign In and clear the entire navigation stack behind
                   // it, so the back button can't return into the app.
                   Navigator.pop(dialogContext);
-                  unawaited(cycle.logout());
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(

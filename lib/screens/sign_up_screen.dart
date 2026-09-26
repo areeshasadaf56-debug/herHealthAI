@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/cycle_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import 'home_shell.dart';
@@ -56,11 +58,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _isSubmitting = true;
     });
 
-    // NOTE: No backend/auth service is wired up yet — this just validates
-    // the fields and takes the user into the app. Hook this up to Firebase
-    // Auth, your own API, etc. when ready.
-    await Future<void>.delayed(const Duration(milliseconds: 200));
+    // Create the real account on the backend. This was a stub that skipped
+    // the network call entirely, so no session token was ever issued.
+    final error = await context.read<CycleProvider>().signUp(
+      name: name,
+      email: email,
+      password: password,
+    );
     if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _errorText = error;
+        _isSubmitting = false;
+      });
+      return;
+    }
 
     Navigator.pushAndRemoveUntil(
       context,

@@ -165,50 +165,6 @@ class _HomeShellState extends State<HomeShell> {
                 }),
               ),
             ),
-          child: Row(
-            children: List.generate(_navItems.length, (i) {
-              final item = _navItems[i];
-              final active = _tabIndex == i;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _tabIndex = i),
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 2,
-                      vertical: 6,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          item.icon,
-                          size: 18,
-                          color: active
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          item.shortLabel,
-                          style: AppTextStyles.sans(
-                            size: 9,
-                            weight: active ? FontWeight.w600 : FontWeight.w500,
-                            color: active
-                                ? AppColors.primary
-                                : AppColors.textSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
           ),
         ),
       ),

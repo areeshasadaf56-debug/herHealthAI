@@ -20,6 +20,62 @@ class AuthRequiredException implements Exception {
   String toString() => message;
 }
 
+/// A file the user attached to an AI Check-in message.
+///
+/// Field names must match what the backend reads off the request:
+/// `file_name`, `mime_type`, `data_base64` (see `main.py` /`chat.py`).
+/// The constructor asserts the same limits the server enforces so an
+/// oversized or wrongly-typed file fails with a readable message in the
+/// chat bubble instead of a bare 422.
+class ChatAttachment {
+  /// Server rejects names longer than 255 characters.
+  static const int maxFileNameLength = 255;
+
+  /// Server caps decoded uploads at 8 MB.
+  static const int maxBytes = 8000000;
+
+  /// The MIME types the server is willing to decode. Anything else is
+  /// refused, so catch it here rather than round-tripping a rejected file.
+  static const Set<String> allowedMimeTypes = {
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  };
+
+  final String fileName;
+  final String mimeType;
+  final String base64Data;
+
+  ChatAttachment({
+    required this.fileName,
+    required this.mimeType,
+    required this.base64Data,
+  }) {
+    if (fileName.isEmpty || fileName.length > maxFileNameLength) {
+      throw ArgumentError(
+        'Attachment name must be between 1 and $maxFileNameLength characters.',
+      );
+    }
+    if (!allowedMimeTypes.contains(mimeType)) {
+      throw ArgumentError('Attachments of type "$mimeType" are not supported.');
+    }
+    if (base64Data.isEmpty) {
+      throw ArgumentError('Attachment is empty.');
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+    'file_name': fileName,
+    'mime_type': mimeType,
+    'data_base64': base64Data,
+  };
+}
+
 class AiService {
   Future<AiResponse> sendMessage({
     required String message,

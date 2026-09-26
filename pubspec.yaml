@@ -44,6 +44,7 @@ dependencies:
   speech_to_text: ^7.0.0
   # AI Check-in: attaching documents/images to a chat message.
   file_picker: ^8.1.2
+  flutter_svg: ^2.3.0
 
  
 dev_dependencies:
@@ -98,3 +99,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+
+  assets:
+    - assets/images/logo.svg

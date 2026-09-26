@@ -37,14 +37,23 @@ class MethodInfo {
 /// The eligibility result for one method, as returned by POST /eligibility.
 class MethodResult {
   final String methodLabel;
-  final int category;
 
-  MethodResult({required this.methodLabel, required this.category});
+  /// WHO MEC category 1-4, or null when the backend has no verified
+  /// rating for this method given the selected conditions. The backend
+  /// deliberately returns null rather than guessing a category, so this
+  /// must stay nullable -- see eligibility_data.check_eligibility.
+  final int? category;
+
+  /// Explanation shown when [category] is null ("not yet assessed").
+  final String? note;
+
+  MethodResult({required this.methodLabel, required this.category, this.note});
 
   factory MethodResult.fromJson(Map<String, dynamic> json) {
     return MethodResult(
       methodLabel: json['method_label'] as String,
-      category: json['category'] as int,
+      category: (json['category'] as num?)?.toInt(),
+      note: json['note'] as String?,
     );
   }
 }

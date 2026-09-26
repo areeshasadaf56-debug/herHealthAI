@@ -34,6 +34,13 @@ class CycleProvider extends ChangeNotifier {
   String? _authToken;
   String? _accountUserId;
 
+  // When the server-issued token stops being valid. The backend returns
+  // `expires_at` with every signup/signin, and sessions are only good for
+  // that window, so the app checks it locally before trusting a stored
+  // token -- otherwise a returning user would sit on the home screen with
+  // a dead Authorization header and every request would 401.
+  DateTime? _tokenExpiresAt;
+
   // Accounts live on the backend server (see /signup, /signin,
   // /reset_password) so they survive app reinstalls and work across
   // devices.
@@ -59,6 +66,19 @@ class CycleProvider extends ChangeNotifier {
   String get userName => _userName;
   String? get authToken => _authToken;
   String? get accountUserId => _accountUserId;
+  DateTime? get tokenExpiresAt => _tokenExpiresAt;
+
+  /// True when there is a stored token that has not passed its expiry.
+  /// A token with no recorded expiry is treated as valid, because older
+  /// installs stored the token without one and dropping those sessions
+  /// would sign every existing user out on upgrade.
+  bool get hasValidSession {
+    final token = _authToken;
+    if (token == null || token.isEmpty) return false;
+    final expiry = _tokenExpiresAt;
+    if (expiry == null) return true;
+    return expiry.isAfter(DateTime.now());
+  }
 
   CycleProvider() {
     _loadData();
@@ -127,8 +147,9 @@ class CycleProvider extends ChangeNotifier {
     // attaching a dead Authorization header to every request.
     if (_authToken != null && !hasValidSession) {
       _authToken = null;
-      _userId = null;
+      _accountUserId = null;
       _tokenExpiresAt = null;
+      _isLoggedIn = false;
     }
 
     _isLoaded = true;
@@ -145,11 +166,17 @@ class CycleProvider extends ChangeNotifier {
   /// Call on successful sign in / sign up. Persists the logged-in
   /// flag, name, and (when provided) the session token + account id
   /// that every authenticated request now needs.
-  Future<void> login(String name, {String? userId, String? token}) async {
+  Future<void> login(
+    String name, {
+    String? userId,
+    String? token,
+    DateTime? expiresAt,
+  }) async {
     _isLoggedIn = true;
     _userName = name;
     if (userId != null) _accountUserId = userId;
     if (token != null) _authToken = token;
+    if (expiresAt != null) _tokenExpiresAt = expiresAt;
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
@@ -157,6 +184,20 @@ class CycleProvider extends ChangeNotifier {
     await prefs.setString('userName', name);
     if (userId != null) await prefs.setString('accountUserId', userId);
     if (token != null) await prefs.setString('authToken', token);
+    if (expiresAt != null) {
+      await prefs.setInt(
+        'authTokenExpiresAt',
+        expiresAt.millisecondsSinceEpoch,
+      );
+    }
+  }
+
+  /// Reads the `expires_at` timestamp the backend sends with every session.
+  /// Returns null when it is missing or unparseable, which the expiry check
+  /// then treats as "no known expiry" rather than "expired".
+  DateTime? _parseExpiry(dynamic raw) {
+    if (raw is! String || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
   }
 
   String _normalizeEmail(String email) => email.trim().toLowerCase();
@@ -217,6 +258,7 @@ class CycleProvider extends ChangeNotifier {
         body['name'] ?? name,
         userId: body['user_id']?.toString(),
         token: body['token'] as String?,
+        expiresAt: _parseExpiry(body['expires_at']),
       );
       return null;
     } on http.ClientException {
@@ -253,12 +295,51 @@ class CycleProvider extends ChangeNotifier {
         body['name'] ?? '',
         userId: body['user_id']?.toString(),
         token: body['token'] as String?,
+        expiresAt: _parseExpiry(body['expires_at']),
       );
       return null;
     } on http.ClientException {
       return 'Could not reach the server. Please check your internet connection and try again.';
     } catch (_) {
       return 'Could not reach the server. Please check your internet connection and try again.';
+    }
+  }
+
+  /// Step 1 of password reset: ask the server to email a verification
+  /// code. Returns a result whose `error` is non-null on failure.
+  ///
+  /// `debugCode` is only ever populated when the backend is running with
+  /// debug reset codes enabled (development). In production the server
+  /// deliberately omits it so account existence can't be probed, and the
+  /// UI must not depend on it.
+  Future<PasswordResetRequestResult> requestPasswordReset({
+    required String email,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/reset_password/request'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': _normalizeEmail(email)}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode != 200) {
+        return PasswordResetRequestResult(error: _errorMessageFor(response));
+      }
+
+      final body = _safeDecode(response.body);
+      final debugCode = body['debug_code'];
+      return PasswordResetRequestResult(
+        debugCode: debugCode is String && debugCode.isNotEmpty
+            ? debugCode
+            : null,
+      );
+    } catch (_) {
+      return const PasswordResetRequestResult(
+        error:
+            'Could not reach the server. Please check your internet connection and try again.',
+      );
     }
   }
 
@@ -303,12 +384,14 @@ class CycleProvider extends ChangeNotifier {
     _isLoggedIn = false;
     _authToken = null;
     _accountUserId = null;
+    _tokenExpiresAt = null;
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', false);
     await prefs.remove('authToken');
     await prefs.remove('accountUserId');
+    await prefs.remove('authTokenExpiresAt');
 
     if (tokenToInvalidate != null) {
       try {

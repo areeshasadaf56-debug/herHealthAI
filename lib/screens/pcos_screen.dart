@@ -49,6 +49,7 @@ class _PcosScreenState extends State<PcosScreen> {
   final _endometriumController = TextEditingController();
 
   String _cycleRegularity = 'Regular';
+  String _maritalStatus = '';
   bool _weightGain = false;
   bool _hairGrowth = false;
   bool _skinDarkening = false;
@@ -95,6 +96,11 @@ class _PcosScreenState extends State<PcosScreen> {
       }
       if (profile.reproductiveHistory.cycleRegularity != null) {
         _cycleRegularity = profile.reproductiveHistory.cycleRegularity!;
+        filledSomething = true;
+      }
+      if (_maritalStatus.isEmpty &&
+          profile.demographics.maritalStatus != null) {
+        _maritalStatus = profile.demographics.maritalStatus!;
         filledSomething = true;
       }
       if (_cycleLengthController.text.isEmpty &&
@@ -733,36 +739,78 @@ class _PcosScreenState extends State<PcosScreen> {
             _sectionLabel('PERSONAL DETAILS'),
             const SizedBox(height: 12),
             _fieldRow(
-              _numberField('Age (yrs)', _ageController, hint: 'e.g. 24'),
-              _numberField('Weight (kg)', _weightController, hint: 'e.g. 58'),
+              _numberField(
+                'Age (yrs)',
+                _ageController,
+                hint: 'e.g. 24',
+                min: 10,
+                max: 100,
+              ),
+              _numberField(
+                'Weight (kg)',
+                _weightController,
+                hint: 'e.g. 58',
+                min: 20,
+                max: 350,
+              ),
             ),
             const SizedBox(height: 12),
             _fieldRow(
-              _numberField('Height (cm)', _heightController, hint: 'e.g. 162'),
+              _numberField(
+                'Height (cm)',
+                _heightController,
+                hint: 'e.g. 162',
+                min: 100,
+                max: 250,
+              ),
               _numberField(
                 'Cycle length (days)',
                 _cycleLengthController,
                 hint: 'e.g. 30',
+                min: 10,
+                max: 90,
               ),
             ),
             const SizedBox(height: 12),
             _cycleRegularityToggle(),
             const SizedBox(height: 20),
+            _maritalStatusSelector(),
+            const SizedBox(height: 20),
 
             _sectionLabel('HORMONAL & LAB MARKERS'),
             const SizedBox(height: 12),
             _fieldRow(
-              _numberField('PRL (ng/mL)', _prlController, hint: 'e.g. 18.5'),
+              _numberField(
+                'PRL (ng/mL)',
+                _prlController,
+                hint: 'e.g. 18.5',
+                min: 0,
+                max: 1000,
+              ),
               _numberField(
                 'Vit D3 (ng/mL)',
                 _vitD3Controller,
                 hint: 'e.g. 32.0',
+                min: 0,
+                max: 200,
               ),
             ),
             const SizedBox(height: 12),
             _fieldRow(
-              _numberField('PRG (ng/mL)', _prgController, hint: 'e.g. 1.2'),
-              _numberField('RBS (mg/dl)', _rbsController, hint: 'e.g. 95'),
+              _numberField(
+                'Progesterone PRG (ng/mL)',
+                _prgController,
+                hint: 'e.g. 1.2',
+                min: 0,
+                max: 1000,
+              ),
+              _numberField(
+                'RBS (mg/dl)',
+                _rbsController,
+                hint: 'e.g. 95',
+                min: 0,
+                max: 1000,
+              ),
             ),
             const SizedBox(height: 20),
 
@@ -773,11 +821,15 @@ class _PcosScreenState extends State<PcosScreen> {
                 'Systolic (mmHg)',
                 _bpSystolicController,
                 hint: 'e.g. 120',
+                min: 50,
+                max: 250,
               ),
               _numberField(
                 'Diastolic (mmHg)',
                 _bpDiastolicController,
                 hint: 'e.g. 80',
+                min: 30,
+                max: 150,
               ),
             ),
             const SizedBox(height: 20),
@@ -789,11 +841,15 @@ class _PcosScreenState extends State<PcosScreen> {
                 'Follicle No. (L)',
                 _follicleLController,
                 hint: 'e.g. 12',
+                min: 0,
+                max: 100,
               ),
               _numberField(
                 'Follicle No. (R)',
                 _follicleRController,
                 hint: 'e.g. 11',
+                min: 0,
+                max: 100,
               ),
             ),
             const SizedBox(height: 12),
@@ -802,11 +858,15 @@ class _PcosScreenState extends State<PcosScreen> {
                 'Avg. F size (L) (mm)',
                 _avgFSizeLController,
                 hint: 'e.g. 8.5',
+                min: 0,
+                max: 50,
               ),
               _numberField(
                 'Avg. F size (R) (mm)',
                 _avgFSizeRController,
                 hint: 'e.g. 8.2',
+                min: 0,
+                max: 50,
               ),
             ),
             const SizedBox(height: 12),
@@ -814,6 +874,8 @@ class _PcosScreenState extends State<PcosScreen> {
               'Endometrium (mm)',
               _endometriumController,
               hint: 'e.g. 7.0',
+              min: 0,
+              max: 50,
             ),
             const SizedBox(height: 20),
 
@@ -929,6 +991,8 @@ class _PcosScreenState extends State<PcosScreen> {
     String label,
     TextEditingController controller, {
     required String hint,
+    double? min,
+    double? max,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -973,7 +1037,14 @@ class _PcosScreenState extends State<PcosScreen> {
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) return 'Required';
-            if (double.tryParse(value.trim()) == null) return 'Enter a number';
+            final parsed = double.tryParse(value.trim());
+            if (parsed == null) return 'Enter a number';
+            if (min != null && parsed < min) {
+              return 'Must be ${_formatBound(min)} or more';
+            }
+            if (max != null && parsed > max) {
+              return 'Must be ${_formatBound(max)} or less';
+            }
             return null;
           },
         ),
@@ -1032,6 +1103,72 @@ class _PcosScreenState extends State<PcosScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Marital status. Collected here because it genuinely shapes the advice
+  /// the app gives (contraception eligibility, and the AI check-in's
+  /// questions), and it is saved to the profile for that reason.
+  ///
+  /// It is deliberately NOT one of the 22 fields sent to /predict. The
+  /// training data records "years married", and 538 of its 540 rows are
+  /// married, so it contains no usable single/unmarried signal. Adding it
+  /// as a 23rd model feature did not improve cross-validated AUC
+  /// (0.9582 -> 0.9572), so feeding it to the model would add a number that
+  /// cannot be trusted rather than a useful signal.
+  Widget _maritalStatusSelector() {
+    const options = ['Single', 'Married', 'Divorced', 'Widowed'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'MARITAL STATUS',
+          style: AppTextStyles.sans(
+            size: 10,
+            weight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options
+              .map(
+                (option) => GestureDetector(
+                  onTap: () => setState(() => _maritalStatus = option),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _maritalStatus == option
+                          ? AppColors.ovulationTeal.withValues(alpha: 0.18)
+                          : AppColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _maritalStatus == option
+                            ? AppColors.ovulationTeal.withValues(alpha: 0.6)
+                            : AppColors.cardBorder,
+                      ),
+                    ),
+                    child: Text(
+                      option,
+                      style: AppTextStyles.sans(
+                        size: 12,
+                        weight: FontWeight.w600,
+                        color: _maritalStatus == option
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 
@@ -1218,6 +1355,9 @@ class _PcosScreenState extends State<PcosScreen> {
             ageYrs: age,
             weightKg: weight,
             heightCm: height,
+            // Left null when the user didn't pick one, so an existing saved
+            // value isn't wiped by an unanswered optional question.
+            maritalStatus: _maritalStatus.isEmpty ? null : _maritalStatus,
           ),
           reproductiveHistory: p.reproductiveHistory.copyWith(
             cycleRegularity: _cycleRegularity,
@@ -1235,6 +1375,14 @@ class _PcosScreenState extends State<PcosScreen> {
         _errorText = 'Could not get a prediction: $e';
       });
     }
+  }
+
+  /// Formats a validation bound for display: whole numbers stay whole
+  /// ("100"), fractional ones keep their decimals ("8.5").
+  String _formatBound(double value) {
+    return value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toString();
   }
 
   Widget _sectionLabel(String text) {

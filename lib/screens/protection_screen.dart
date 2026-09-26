@@ -883,6 +883,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
               (r) => EligibilityResultEntry(
                 methodLabel: r.methodLabel,
                 category: r.category,
+                note: r.note,
               ),
             )
             .toList(),
@@ -953,7 +954,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
     }
   }
 
-  Color _categoryColor(int category) {
+  Color _categoryColor(int? category) {
     switch (category) {
       case 1:
         return AppColors.ovulationTeal;
@@ -968,7 +969,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
     }
   }
 
-  String _categoryShortLabel(int category) {
+  String _categoryShortLabel(int? category) {
     switch (category) {
       case 1:
         return 'Safe to use';
@@ -979,7 +980,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
       case 4:
         return 'Not recommended';
       default:
-        return '';
+        return 'Not yet assessed';
     }
   }
 
@@ -1289,7 +1290,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
         height: 46,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isActive ? activeColor.withValues(alpha: 0.15) : AppColors.surface,
+          color: isActive
+              ? activeColor.withValues(alpha: 0.15)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isActive
@@ -1594,7 +1597,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
+                disabledBackgroundColor: AppColors.primary.withValues(
+                  alpha: 0.4,
+                ),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 elevation: 0,
@@ -1630,7 +1635,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
               decoration: BoxDecoration(
                 color: AppColors.periodRed.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.periodRed.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.periodRed.withValues(alpha: 0.3),
+                ),
               ),
               child: Text(
                 _eligibilityError!,
@@ -1950,7 +1957,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: color.withValues(alpha: 0.35)),
+                        border: Border.all(
+                          color: color.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Text(
                         m,
@@ -2227,7 +2236,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.textSecondary.withValues(alpha: 0.12),
+                              color: AppColors.textSecondary.withValues(
+                                alpha: 0.12,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -2326,7 +2337,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
             ),
             child: Center(
               child: Text(
-                '${r.category}',
+                r.category?.toString() ?? '—',
                 style: AppTextStyles.sans(
                   size: 16,
                   weight: FontWeight.w700,
@@ -2349,6 +2360,16 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                   _categoryShortLabel(r.category),
                   style: AppTextStyles.sans(size: 11, color: color),
                 ),
+                if (r.category == null && r.note != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    r.note!,
+                    style: AppTextStyles.sans(
+                      size: 10.5,
+                      color: AppColors.textSecondary,
+                    ).copyWith(height: 1.4),
+                  ),
+                ],
               ],
             ),
           ),
@@ -3312,7 +3333,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.ovulationTeal.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: AppColors.ovulationTeal.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         children: [

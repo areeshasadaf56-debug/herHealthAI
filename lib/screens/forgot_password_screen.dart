@@ -16,28 +16,81 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
+  final _codeController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _obscurePassword = true;
   bool _isSubmitting = false;
   bool _isDone = false;
+
+  /// False until the verification code has been requested. The server
+  /// requires a code to confirm the reset, so this screen has two steps
+  /// rather than one.
+  bool _codeSent = false;
+
+  /// Populated only when the backend runs with debug codes enabled
+  /// (development). Never shown as if it were the real code in
+  /// production, where the server omits it.
+  String? _debugCode;
   String? _errorText;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _codeController.dispose();
     _newPasswordController.dispose();
     _confirmController.dispose();
     super.dispose();
   }
 
+  /// Step 1: ask the server to email a verification code.
+  Future<void> _handleRequestCode() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      setState(() => _errorText = 'Please enter your email address.');
+      return;
+    }
+    if (!email.contains('@')) {
+      setState(() => _errorText = 'Please enter a valid email address.');
+      return;
+    }
+
+    setState(() {
+      _errorText = null;
+      _isSubmitting = true;
+    });
+
+    final result = await context.read<CycleProvider>().requestPasswordReset(
+      email: email,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSubmitting = false;
+      if (result.error != null) {
+        _errorText = result.error;
+      } else {
+        _codeSent = true;
+        _debugCode = result.debugCode;
+      }
+    });
+  }
+
+  /// Step 2: submit the emailed code with the new password.
   Future<void> _handleReset() async {
     final email = _emailController.text.trim();
+    final code = _codeController.text.trim();
     final newPassword = _newPasswordController.text;
     final confirm = _confirmController.text;
 
     if (email.isEmpty || newPassword.isEmpty || confirm.isEmpty) {
       setState(() => _errorText = 'Please fill in all fields.');
+      return;
+    }
+    if (code.isEmpty) {
+      setState(() => _errorText = 'Please enter the verification code.');
       return;
     }
     if (!email.contains('@')) {
@@ -60,6 +113,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     final error = await context.read<CycleProvider>().resetPassword(
       email: email,
+      code: code,
       newPassword: newPassword,
     );
 
@@ -112,7 +166,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               Text(
                 _isDone
                     ? 'Your password has been updated.'
-                    : 'Enter your email and choose a new password.',
+                    : _codeSent
+                    ? 'Enter the code we emailed you and choose a new password.'
+                    : 'Enter your email and we will send a verification code.',
                 style: AppTextStyles.sans(
                   size: 13,
                   color: AppColors.textSecondary,
@@ -153,6 +209,32 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   hint: 'you@example.com',
                   keyboardType: TextInputType.emailAddress,
                 ),
+                if (_codeSent) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    'Verification Code',
+                    style: AppTextStyles.sans(
+                      size: 12,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildTextField(
+                    controller: _codeController,
+                    hint: '8-digit code from your email',
+                    keyboardType: TextInputType.number,
+                  ),
+                  if (_debugCode != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Development code: $_debugCode',
+                      style: AppTextStyles.sans(
+                        size: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
                 const SizedBox(height: 18),
                 Text(
                   'New Password',
@@ -208,7 +290,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: _isSubmitting ? null : _handleReset,
+                    onPressed: _isSubmitting
+                        ? null
+                        : (_codeSent ? _handleReset : _handleRequestCode),
                     child: _isSubmitting
                         ? const SizedBox(
                             width: 20,
@@ -219,7 +303,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             ),
                           )
                         : Text(
-                            'Reset Password',
+                            _codeSent ? 'Reset Password' : 'Send Code',
                             style: AppTextStyles.sans(
                               size: 14,
                               weight: FontWeight.w700,
