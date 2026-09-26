@@ -6,6 +6,21 @@ import '../config/api_config.dart';
 import '../models/cycle_data.dart';
 import '../models/daily_log.dart';
 
+/// Turns a transport-layer failure into a user-facing message.
+///
+/// The friendly wording is preserved, but the real cause is appended instead
+/// of being discarded by a bare `catch (_)`. Several very different failures
+/// (DNS/socket refusal, CORS rejection in a browser, TLS, unsupported
+/// operation on the web target) were previously all reported as the same
+/// unhelpful "could not reach the server" text, which hid the actual defect.
+String _transportError(Object error) {
+  final type = error.runtimeType.toString();
+  final detail = error.toString().trim();
+  final cause = detail.isEmpty ? type : '$type: $detail';
+  return 'Could not reach the server. Please check your internet connection '
+      'and try again. ($cause)';
+}
+
 class PasswordResetRequestResult {
   final String? error;
   final String? debugCode;
@@ -261,10 +276,10 @@ class CycleProvider extends ChangeNotifier {
         expiresAt: _parseExpiry(body['expires_at']),
       );
       return null;
-    } on http.ClientException {
-      return 'Could not reach the server. Please check your internet connection and try again.';
-    } catch (_) {
-      return 'Could not reach the server. Please check your internet connection and try again.';
+    } on http.ClientException catch (error) {
+      return _transportError(error);
+    } catch (error) {
+      return _transportError(error);
     }
   }
 
@@ -298,10 +313,10 @@ class CycleProvider extends ChangeNotifier {
         expiresAt: _parseExpiry(body['expires_at']),
       );
       return null;
-    } on http.ClientException {
-      return 'Could not reach the server. Please check your internet connection and try again.';
-    } catch (_) {
-      return 'Could not reach the server. Please check your internet connection and try again.';
+    } on http.ClientException catch (error) {
+      return _transportError(error);
+    } catch (error) {
+      return _transportError(error);
     }
   }
 
@@ -335,10 +350,9 @@ class CycleProvider extends ChangeNotifier {
             ? debugCode
             : null,
       );
-    } catch (_) {
-      return const PasswordResetRequestResult(
-        error:
-            'Could not reach the server. Please check your internet connection and try again.',
+    } catch (error) {
+      return PasswordResetRequestResult(
+        error: _transportError(error),
       );
     }
   }
@@ -368,8 +382,8 @@ class CycleProvider extends ChangeNotifier {
       }
 
       return null;
-    } catch (_) {
-      return 'Could not reach the server. Please check your internet connection and try again.';
+    } catch (error) {
+      return _transportError(error);
     }
   }
 

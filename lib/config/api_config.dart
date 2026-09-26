@@ -10,7 +10,7 @@
 // on Windows and iOS nothing listens there, so every request failed with
 // "could not reach the server" even when the backend was running.
 
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   /// Set at build/run time with:
@@ -28,7 +28,10 @@ class ApiConfig {
 
   static String get baseUrl {
     if (_override.isNotEmpty) return _override;
-    if (Platform.isAndroid) return _androidEmulator;
+    // kIsWeb must be checked first: on web `dart:io` is a stub that throws
+    // `UnsupportedError` on any access, so Platform.* cannot be touched.
+    if (kIsWeb) return _loopback;
+    if (defaultTargetPlatform == TargetPlatform.android) return _androidEmulator;
     return _loopback;
   }
 

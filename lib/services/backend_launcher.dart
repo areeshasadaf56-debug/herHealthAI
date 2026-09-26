@@ -22,6 +22,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../config/api_config.dart';
 
 class BackendLauncher {
@@ -48,7 +50,9 @@ class BackendLauncher {
   }
 
   /// Only Windows desktops can host a local Python backend.
-  static bool get canAutoStart => Platform.isWindows;
+  /// `kIsWeb` is checked before any `dart:io` access because on web `dart:io`
+  /// is a stub that throws `UnsupportedError: Platform._operatingSystem`.
+  static bool get canAutoStart => !kIsWeb && Platform.isWindows;
 
   /// True when [ApiConfig] points at this machine, i.e. starting a local
   /// server is actually the right thing to do. If the app is pointed at a

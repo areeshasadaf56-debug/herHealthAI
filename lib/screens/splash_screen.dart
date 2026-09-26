@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
@@ -48,10 +50,32 @@ class _SplashScreenState extends State<SplashScreen> {
     // app is broken. So we give it a short bounded window, then move on
     // regardless -- the launcher keeps starting the backend in the
     // background, and any screen that needs the API reports its own error.
-    final ready = await Future.any<bool>([
-      BackendLauncher.ensureRunning(),
-      Future<bool>.delayed(const Duration(seconds: 6), () => false),
-    ]).then((value) => value);
+    // A launcher failure must never abort startup: an error escaping this
+    // await would skip the navigation below and strand the user on splash.
+    // The 6s fallback is a real Timer (not Future.delayed inside Future.any)
+    // so it can be cancelled as soon as the launcher answers -- otherwise the
+    // timer outlives the route and widget tests fail on pending timers.
+    var ready = false;
+    final completer = Completer<bool>();
+    final fallback = Timer(const Duration(seconds: 6), () {
+      if (!completer.isCompleted) completer.complete(false);
+    });
+    try {
+      unawaited(
+        BackendLauncher.ensureRunning().then((value) {
+          if (!completer.isCompleted) completer.complete(value);
+        }).catchError((Object error) {
+          debugPrint('Splash: backend startup check failed: $error');
+          if (!completer.isCompleted) completer.complete(false);
+        }),
+      );
+      ready = await completer.future;
+    } catch (error) {
+      debugPrint('Splash: backend startup check failed: $error');
+      ready = false;
+    } finally {
+      fallback.cancel();
+    }
     if (!mounted) return;
     setState(() {
       _apiReady = ready;
