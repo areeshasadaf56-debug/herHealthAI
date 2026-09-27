@@ -201,6 +201,7 @@ final List<ConditionGroup> _conditionGroups = [
     'History of cholestasis',
     _leaves(['history_cholestasis', 'history_cholestasis_past_oc_related']),
   ),
+  ConditionGroup('Current DVT/PE (blood clots)', _leaves(['vte_current'])),
   ConditionGroup('History of DVT/PE (blood clots)', _leaves(['vte_history'])),
   ConditionGroup(
     'History of high blood pressure in pregnancy',
@@ -384,6 +385,8 @@ const Map<String, String> _fallbackConditionLabels = {
   'vaginitis':
       'Vaginitis (excluding Trichomonas vaginalis and bacterial vaginosis)',
   'increased_risk_stis': 'Increased risk of STIs',
+  'vte_current': 'Current DVT/PE (on anticoagulant therapy)',
+  'vte_history': 'History of DVT/PE (blood clots)',
   'smoking_35_plus_under15cig': 'Age ≥ 35, < 15 cigarettes/day',
   'smoking_35_plus_15plus_cig': 'Age ≥ 35, ≥ 15 cigarettes/day',
   'sle_severe_thrombocytopenia': 'SLE with severe thrombocytopenia',
@@ -464,6 +467,84 @@ const Map<String, String> _fallbackConditionLabels = {
   'current_breast_cancer': 'Current',
   'past_breast_cancer_5yrs':
       'Past and no evidence of current disease for 5 years',
+  'anticonvulsant_certain':
+      'Certain anticonvulsants (e.g. phenytoin, carbamazepine, phenobarbital)',
+  'anticonvulsant_lamotrigine': 'Lamotrigine (anticonvulsant therapy)',
+  'antimicrobial_broad_spectrum': 'Broad-spectrum antimicrobial therapy',
+  'antimicrobial_rifampicin': 'Rifampicin (rifampin) antibiotic therapy',
+  'antiretroviral_therapy': 'Antiretroviral therapy (see individual drugs)',
+  'benign_ovarian_tumours': 'Benign ovarian tumours',
+  'bp_unavailable': 'Blood pressure measurement unavailable',
+  'breastfeeding_lt6weeks': 'Breastfeeding, < 6 weeks postpartum',
+  'breastfeeding_6wk_6mo': 'Breastfeeding, 6 weeks to < 6 months postpartum',
+  'breastfeeding_6mo_plus': 'Breastfeeding, ≥ 6 months postpartum',
+  'cardiovascular_disease': 'Cardiovascular disease (current or past)',
+  'cervical_cancer_awaiting_treatment': 'Cervical cancer (awaiting treatment)',
+  'cervical_ectropion': 'Cervical ectropion',
+  'cin': 'Cervical intraepithelial neoplasia (CIN)',
+  'cirrhosis_mild': 'Cirrhosis, mild (compensated)',
+  'cirrhosis_severe': 'Cirrhosis, severe (decompensated)',
+  'diabetes_gestational_history': 'History of gestational diabetes',
+  'diabetes_no_vascular':
+      'Diabetes, no vascular disease, < 20 years duration',
+  'diabetes_other_vascular_20yrs':
+      'Diabetes, other vascular disease or ≥ 20 years duration',
+  'diabetes_nephropathy':
+      'Diabetes with nephropathy or severe proliferative retinopathy',
+  'diabetes_with_vascular':
+      'Diabetes with vascular disease or ≥ 20 years duration',
+  'endometrial_cancer': 'Endometrial cancer',
+  'endometriosis': 'Endometriosis',
+  'epilepsy': 'Epilepsy',
+  'gall_bladder_disease': 'Gall bladder disease',
+  'gestational_trophoblastic_disease': 'Gestational trophoblastic disease',
+  'high_risk_hiv_sti': 'High risk of HIV infection / STI',
+  'history_cholestasis': 'History of cholestasis',
+  'history_pelvic_surgery': 'History of pelvic surgery (see postpartum)',
+  'history_pregnancy_hypertension':
+      'History of high blood pressure in pregnancy',
+  'hiv_high_risk': 'High risk of HIV infection',
+  'hiv_mild_stage': 'HIV infection, mild stage (asymptomatic)',
+  'hiv_severe_stage': 'HIV infection, severe stage (symptomatic)',
+  'known_hiv_on_art': 'HIV infection, on antiretroviral therapy',
+  'hypertension_controlled': 'Hypertension, controlled on medication',
+  'hypertension_uncontrolled': 'Hypertension, uncontrolled',
+  'iron_deficient_anaemia': 'Iron-deficient anaemia',
+  'known_dyslipidaemias': 'Known dyslipidaemias',
+  'known_thrombogenic_mutations': 'Known thrombogenic mutations',
+  'liver_tumours_benign': 'Liver tumours, benign',
+  'liver_tumours_malignant': 'Liver tumours, malignant',
+  'migraine_no_aura': 'Migraine without aura',
+  'migraine_with_aura': 'Migraine with aura',
+  'multiple_cvd_risk': 'Multiple cardiovascular disease risk factors',
+  'obesity_bmi30': 'Obesity, BMI ≥ 30 kg/m²',
+  'postpartum_non_breastfeeding': 'Postpartum, not breastfeeding',
+  'severe_dysmenorrhoea': 'Severe dysmenorrhoea',
+  'sickle_cell_disease': 'Sickle cell disease',
+  'sle_antiphospholipid_positive':
+      'Systemic lupus erythematosus, antiphospholipid antibody positive',
+  'smoking_under_35': 'Age < 35',
+  'smoking_35_plus': 'Age ≥ 35',
+  'sti_current_purulent':
+      'Current STI: purulent cervicitis, gonorrhoea or chlamydia',
+  'sti_other': 'Other STIs (e.g. herpes simplex, syphilis, chlamydia)',
+  'stroke_history': 'History of stroke',
+  'superficial_venous_thrombosis': 'Superficial venous thrombosis',
+  'unexplained_vaginal_bleeding':
+      'Unexplained vaginal bleeding (evaluation pending)',
+  'uterine_fibroids_no_distortion':
+      'Uterine fibroids without cavity distortion',
+  'uterine_fibroids_with_distortion':
+      'Uterine fibroids distorting the cavity',
+  'vaginal_bleeding_heavy': 'Vaginal bleeding, heavy',
+  'vaginal_bleeding_irregular': 'Vaginal bleeding, irregular',
+  'valvular_heart_disease_complicated':
+      'Valvular heart disease, complicated',
+  'valvular_heart_disease_uncomplicated':
+      'Valvular heart disease, uncomplicated',
+  'varicose_veins': 'Varicose veins',
+  'viral_hepatitis_active': 'Viral hepatitis, active',
+  'viral_hepatitis_carrier': 'Viral hepatitis, carrier (HBsAg positive)',
 };
 
 // ============================================================
@@ -847,6 +928,10 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
         _eligibilitySaved = false;
       });
     } catch (e) {
+      // Log the real reason (e.g. "Eligibility check failed (500): ...")
+      // before the generic message replaces it on screen -- otherwise a
+      // server-side failure is impossible to diagnose from the UI alone.
+      debugPrint('Eligibility check failed: $e');
       setState(() {
         _eligibilityError =
             'Could not check eligibility right now. Please try again in a moment.';
@@ -2136,6 +2221,59 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
     );
   }
 
+  /// Provenance badge shown next to a condition label.
+  ///
+  /// Two very different states, and conflating them would misrepresent
+  /// medical guidance:
+  ///  * not supported at all -> "Coming soon", nothing to review yet;
+  ///  * supported, but the WHO MEC rows were matched from the PDF by machine
+  ///    and no clinician has signed them off -> "Pending review". The rating
+  ///    is shown (it is WHO's own number) but the user is told it is unproven.
+  ///
+  /// Hand-verified conditions get no badge, so the label itself signals that
+  /// something is worth reading.
+  List<Widget> _reviewBadge(Condition c, bool isSupported) {
+    if (!isSupported) {
+      return [
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.textSecondary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'Coming soon',
+            style: AppTextStyles.sans(
+              size: 9,
+              weight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ];
+    }
+    if (c.isClinicallyVerified) return const [];
+    return [
+      const SizedBox(width: 6),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: _categoryColor(3).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          'Pending review',
+          style: AppTextStyles.sans(
+            size: 9,
+            weight: FontWeight.w600,
+            color: _categoryColor(3),
+          ),
+        ),
+      ),
+    ];
+  }
+
   List<Widget> _buildNodeRows(
     List<ConditionNode> nodes,
     Map<String, Condition> byId,
@@ -2228,29 +2366,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                             ).copyWith(height: 1.35),
                           ),
                         ),
-                        if (!isSupported) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.textSecondary.withValues(
-                                alpha: 0.12,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Coming soon',
-                              style: AppTextStyles.sans(
-                                size: 9,
-                                weight: FontWeight.w600,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ..._reviewBadge(c, isSupported),
                       ],
                     ),
                   ),
@@ -2281,24 +2397,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
         child: Row(
           children: [
             Flexible(child: Text(c.label, style: AppTextStyles.sans(size: 13))),
-            if (!isSupported) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.textSecondary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'Coming soon',
-                  style: AppTextStyles.sans(
-                    size: 9,
-                    weight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
+            ..._reviewBadge(c, isSupported),
           ],
         ),
       ),
@@ -2360,13 +2459,18 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                   _categoryShortLabel(r.category),
                   style: AppTextStyles.sans(size: 11, color: color),
                 ),
-                if (r.category == null && r.note != null) ...[
+                if (r.note != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     r.note!,
                     style: AppTextStyles.sans(
                       size: 10.5,
-                      color: AppColors.textSecondary,
+                      // A pending-review note is a caveat on a rating that IS
+                      // being shown, so it must not be styled like the
+                      // muted "no data" text -- it is a live warning.
+                      color: r.category == null
+                          ? AppColors.textSecondary
+                          : _categoryColor(3),
                     ).copyWith(height: 1.4),
                   ),
                 ],

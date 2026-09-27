@@ -1234,10 +1234,20 @@ class _PcosScreenState extends State<PcosScreen> {
   }
 
   Widget _resultCard(PcosResult result) {
-    final isPositive =
-        result.prediction.toLowerCase().contains('detected') &&
-        !result.prediction.toLowerCase().contains('no pcos');
-    final color = isPositive ? AppColors.periodRed : AppColors.ovulationTeal;
+    // Colour and headline follow the screening band, not the raw yes/no
+    // `prediction`. At a 0.5 cutoff roughly 1 in 4 real cases came back "No
+    // PCOS Detected", so an "elevated" result used to be displayed as a
+    // reassuring all-clear. The band is the actionable part of the response.
+    final level = result.effectiveRiskLevel;
+    final Color color;
+    switch (level) {
+      case 'high':
+        color = AppColors.periodRed;
+      case 'elevated':
+        color = AppColors.symptomOrange;
+      default:
+        color = AppColors.ovulationTeal;
+    }
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1250,7 +1260,7 @@ class _PcosScreenState extends State<PcosScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            result.prediction,
+            result.effectiveRiskLabel,
             style: AppTextStyles.sans(
               size: 15,
               weight: FontWeight.w700,
@@ -1266,7 +1276,15 @@ class _PcosScreenState extends State<PcosScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          Text(
+            result.effectiveScreeningAdvice,
+            style: AppTextStyles.sans(
+              size: 12,
+              color: AppColors.textPrimary,
+            ).copyWith(height: 1.45),
+          ),
+          const SizedBox(height: 10),
           Text(
             'Model used: ${result.modelUsed}',
             style: AppTextStyles.sans(size: 11, color: AppColors.textSecondary),
@@ -1340,6 +1358,7 @@ class _PcosScreenState extends State<PcosScreen> {
         prediction: result.prediction,
         pcosProbability: result.pcosProbability,
         modelUsed: result.modelUsed,
+        riskLevel: result.effectiveRiskLevel,
       );
 
       // Persist the form inputs back to the profile so Demographics

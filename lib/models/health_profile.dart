@@ -459,18 +459,32 @@ class PcosCheckResult {
   final double pcosProbability;
   final String modelUsed;
 
+  /// Screening band: 'low' / 'elevated' / 'high'. Optional because entries
+  /// saved before the two-tier response existed have no band recorded; read it
+  /// through [effectiveRiskLevel], which falls back to the probability.
+  final String? riskLevel;
+
   const PcosCheckResult({
     required this.date,
     required this.prediction,
     required this.pcosProbability,
     required this.modelUsed,
+    this.riskLevel,
   });
+
+  String get effectiveRiskLevel {
+    if (riskLevel != null) return riskLevel!;
+    if (pcosProbability >= 0.5) return 'high';
+    if (pcosProbability >= 0.35) return 'elevated';
+    return 'low';
+  }
 
   Map<String, dynamic> toJson() => {
     'date': date.toIso8601String(),
     'prediction': prediction,
     'pcos_probability': pcosProbability,
     'model_used': modelUsed,
+    if (riskLevel != null) 'risk_level': riskLevel,
   };
 
   factory PcosCheckResult.fromJson(Map<String, dynamic> json) {
@@ -479,6 +493,7 @@ class PcosCheckResult {
       prediction: json['prediction'] as String,
       pcosProbability: (json['pcos_probability'] as num).toDouble(),
       modelUsed: json['model_used'] as String,
+      riskLevel: json['risk_level'] as String?,
     );
   }
 }

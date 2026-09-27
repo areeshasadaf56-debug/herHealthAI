@@ -114,57 +114,66 @@ class _HomeShellState extends State<HomeShell> {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: SafeArea(
           top: false,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: Row(
-                children: List.generate(_navItems.length, (i) {
-                  final item = _navItems[i];
-                  final active = _tabIndex == i;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _tabIndex = i),
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 2,
-                          vertical: 6,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              item.icon,
-                              size: 18,
-                              color: active
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
+          // A bare `Center` expands to fill ALL the height the Scaffold
+          // offers the bottomNavigationBar slot, which leaves the body with
+          // zero height and renders the page blank. A `Row` derives its
+          // height from its children, so it cannot starve the body.
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: Row(
+                    children: List.generate(_navItems.length, (i) {
+                      final item = _navItems[i];
+                      final active = _tabIndex == i;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _tabIndex = i),
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 2,
+                              vertical: 6,
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              item.shortLabel,
-                              style: AppTextStyles.sans(
-                                size: 7.5,
-                                weight: active
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                                color: active
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  item.icon,
+                                  size: 18,
+                                  color: active
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  item.shortLabel,
+                                  style: AppTextStyles.sans(
+                                    size: 7.5,
+                                    weight: active
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: active
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                }),
+                      );
+                    }),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

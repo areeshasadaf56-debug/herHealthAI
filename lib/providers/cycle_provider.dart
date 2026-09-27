@@ -6,6 +6,18 @@ import '../config/api_config.dart';
 import '../models/cycle_data.dart';
 import '../models/daily_log.dart';
 
+/// Whether the backend the app is talking to lives on this machine.
+///
+/// `10.0.2.2` is the Android emulator's alias for the host's loopback, so a
+/// failure there is a local-process failure, not an internet one.
+bool get _backendIsLocal {
+  final host = Uri.tryParse(ApiConfig.baseUrl)?.host ?? '';
+  return host == '127.0.0.1' ||
+      host == 'localhost' ||
+      host == '10.0.2.2' ||
+      host == '0.0.0.0';
+}
+
 /// Turns a transport-layer failure into a user-facing message.
 ///
 /// The friendly wording is preserved, but the real cause is appended instead
@@ -13,10 +25,23 @@ import '../models/daily_log.dart';
 /// (DNS/socket refusal, CORS rejection in a browser, TLS, unsupported
 /// operation on the web target) were previously all reported as the same
 /// unhelpful "could not reach the server" text, which hid the actual defect.
+///
+/// Telling the user to "check your internet connection" was actively wrong in
+/// the most common case: the API is a local FastAPI process, so the usual
+/// cause is simply that the backend is not running. `flutter run` does not
+/// start it -- `run_app.ps1` / `run_app.bat` do. That was reported as an
+/// internet problem and recurred more than once, so the local case now names
+/// the real cause and the command that fixes it.
 String _transportError(Object error) {
   final type = error.runtimeType.toString();
   final detail = error.toString().trim();
   final cause = detail.isEmpty ? type : '$type: $detail';
+  if (_backendIsLocal) {
+    return 'Cannot reach the local backend at ${ApiConfig.baseUrl}. '
+        'It is not running. Start it with run_app.ps1 (Windows) or '
+        'run_app.bat -- those start the API and the app together. '
+        'Note: flutter run on its own does not start the backend. ($cause)';
+  }
   return 'Could not reach the server. Please check your internet connection '
       'and try again. ($cause)';
 }

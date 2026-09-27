@@ -98,17 +98,72 @@ class PcosResult {
   final double pcosProbability;
   final String modelUsed;
 
+  /// Screening band: 'low', 'elevated', or 'high'.
+  ///
+  /// A single 0.5 cutoff misses about 1 in 4 real cases, so the backend
+  /// reports a band as well. The fields are optional because an older
+  /// deployment may not send them; [riskLevel] then falls back to a value
+  /// derived from the probability so the UI still behaves sensibly.
+  final String? riskLevel;
+  final String? riskLabel;
+  final String? screeningAdvice;
+
   PcosResult({
     required this.prediction,
     required this.pcosProbability,
     required this.modelUsed,
+    this.riskLevel,
+    this.riskLabel,
+    this.screeningAdvice,
   });
+
+  /// Effective band, derived locally when the server did not supply one.
+  String get effectiveRiskLevel {
+    if (riskLevel != null) return riskLevel!;
+    if (pcosProbability >= 0.5) return 'high';
+    if (pcosProbability >= 0.35) return 'elevated';
+    return 'low';
+  }
+
+  String get effectiveRiskLabel =>
+      riskLabel ?? _defaultLabelFor(effectiveRiskLevel);
+
+  String get effectiveScreeningAdvice =>
+      screeningAdvice ?? _defaultAdviceFor(effectiveRiskLevel);
+
+  static String _defaultLabelFor(String level) {
+    switch (level) {
+      case 'high':
+        return 'High likelihood';
+      case 'elevated':
+        return 'Possible - worth screening';
+      default:
+        return 'Low likelihood';
+    }
+  }
+
+  static String _defaultAdviceFor(String level) {
+    switch (level) {
+      case 'high':
+        return 'Your answers are strongly associated with PCOS. Please arrange '
+            'an appointment with a doctor for proper testing and confirmation.';
+      case 'elevated':
+        return 'Some of your answers are associated with PCOS. This is not a '
+            'diagnosis, but it is worth discussing with a doctor.';
+      default:
+        return 'Your answers do not strongly suggest PCOS. Keep tracking your '
+            'cycle and symptoms, and see a doctor if they change.';
+    }
+  }
 
   factory PcosResult.fromJson(Map<String, dynamic> json) {
     return PcosResult(
       prediction: json['prediction'] as String? ?? 'Unknown',
       pcosProbability: (json['pcos_probability'] as num?)?.toDouble() ?? 0.0,
       modelUsed: json['model_used'] as String? ?? 'Unknown model',
+      riskLevel: json['risk_level'] as String?,
+      riskLabel: json['risk_label'] as String?,
+      screeningAdvice: json['screening_advice'] as String?,
     );
   }
 }

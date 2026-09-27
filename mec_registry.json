@@ -1,0 +1,1304 @@
+{
+  "source": "WHO MEC 5th edition (2015), Geneva: World Health Organization",
+  "note": "Registry only. 'verified': false means no rating has been checked against the official table yet, and the API must report 'Not yet assessed' for it rather than guessing.",
+  "condition_count": 162,
+  "group_count": 55,
+  "conditions": [
+    {
+      "id": "anticonvulsant_certain",
+      "label": "Certain anticonvulsants (e.g. phenytoin, carbamazepine, phenobarbital)",
+      "group": "Anticonvulsant therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "anticonvulsant_lamotrigine",
+      "label": "Lamotrigine (anticonvulsant therapy)",
+      "group": "Anticonvulsant therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "antimicrobial_broad_spectrum",
+      "label": "Broad-spectrum antimicrobial therapy",
+      "group": "Antimicrobial therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "antimicrobial_rifampicin",
+      "label": "Rifampicin (rifampin) antibiotic therapy",
+      "group": "Antimicrobial therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "antiretroviral_therapy",
+      "label": "Antiretroviral therapy (see individual drugs)",
+      "group": "Antiretroviral Therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_abacavir_cont",
+      "label": "Abacavir (ABC) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_abacavir_init",
+      "label": "Abacavir (ABC) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_atv_r_cont",
+      "label": "Ritonavir-boosted atazanavir (ATV/r) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_atv_r_init",
+      "label": "Ritonavir-boosted atazanavir (ATV/r) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_didanosine_cont",
+      "label": "Didanosine (DDI) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_didanosine_init",
+      "label": "Didanosine (DDI) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_drv_r_cont",
+      "label": "Ritonavir-boosted darunavir (DRV/r) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_drv_r_init",
+      "label": "Ritonavir-boosted darunavir (DRV/r) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_efavirenz_cont",
+      "label": "Efavirenz (EFV) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_efavirenz_init",
+      "label": "Efavirenz (EFV) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_emtricitabine_cont",
+      "label": "Emtricitabine (FTC) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_emtricitabine_init",
+      "label": "Emtricitabine (FTC) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_etravirine_cont",
+      "label": "Etravirine (ETR) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_etravirine_init",
+      "label": "Etravirine (ETR) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_integrase",
+      "label": "Integrase inhibitors",
+      "group": "Antiretroviral Therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_lamivudine_cont",
+      "label": "Lamivudine (3TC) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_lamivudine_init",
+      "label": "Lamivudine (3TC) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_lpv_r_cont",
+      "label": "Ritonavir-boosted Lopinavir (LPV/r) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_lpv_r_init",
+      "label": "Ritonavir-boosted Lopinavir (LPV/r) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_nevirapine_cont",
+      "label": "Nevirapine (NVP) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_nevirapine_init",
+      "label": "Nevirapine (NVP) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_nnrti",
+      "label": "Non-nucleoside reverse transcriptase inhibitors (NNRTIs)",
+      "group": "Antiretroviral Therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_nrti",
+      "label": "Nucleoside reverse transcriptase inhibitors (NRTIs)",
+      "group": "Antiretroviral Therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_pi",
+      "label": "Protease inhibitors (PIs)",
+      "group": "Antiretroviral Therapy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_raltegravir_cont",
+      "label": "Raltegravir (RAL) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_raltegravir_init",
+      "label": "Raltegravir (RAL) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_rilpivirine_cont",
+      "label": "Rilpivirine (RPV) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_rilpivirine_init",
+      "label": "Rilpivirine (RPV) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_ritonavir_cont",
+      "label": "Ritonavir (RTV) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_ritonavir_init",
+      "label": "Ritonavir (RTV) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_stavudine_cont",
+      "label": "Stavudine (D4T) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_stavudine_init",
+      "label": "Stavudine (D4T) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_tenofovir_cont",
+      "label": "Tenofovir (TDF) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_tenofovir_init",
+      "label": "Tenofovir (TDF) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_zidovudine_cont",
+      "label": "Zidovudine (AZT) / Continuation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "continuation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "art_zidovudine_init",
+      "label": "Zidovudine (AZT) / Initiation",
+      "group": "Antiretroviral Therapy",
+      "init_cont": "initiation",
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "benign_ovarian_tumours",
+      "label": "Benign ovarian tumours",
+      "group": "Benign ovarian tumours",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "bp_unavailable",
+      "label": "Blood pressure measurement unavailable",
+      "group": "Blood pressure measurement unavailable",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "breast_benign_disease",
+      "label": "Benign breast disease",
+      "group": "Breast Disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "breast_cancer_category",
+      "label": "Breast cancer",
+      "group": "Breast Disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "breast_family_history_cancer",
+      "label": "Family history of cancer",
+      "group": "Breast Disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "breast_undiagnosed_mass",
+      "label": "Undiagnosed mass",
+      "group": "Breast Disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "breastfeeding_6mo_plus",
+      "label": "Breastfeeding, >= 6 months postpartum",
+      "group": "Breastfeeding",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "breastfeeding_6wk_6mo",
+      "label": "Breastfeeding, 6 weeks to < 6 months postpartum",
+      "group": "Breastfeeding",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "breastfeeding_lt6weeks",
+      "label": "Breastfeeding, < 6 weeks postpartum",
+      "group": "Breastfeeding",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "cardiovascular_disease",
+      "label": "Cardiovascular disease (current or past)",
+      "group": "Cardiovascular disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "cervical_cancer_awaiting_treatment",
+      "label": "Cervical cancer (awaiting treatment)",
+      "group": "Cervical conditions",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "cervical_cancer_continuation",
+      "label": "Cervical cancer (awaiting treatment) — continuation",
+      "group": "Cervical conditions",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "cervical_cancer_initiation",
+      "label": "Cervical cancer (awaiting treatment) — initiation",
+      "group": "Cervical conditions",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "cervical_ectropion",
+      "label": "Cervical ectropion",
+      "group": "Cervical conditions",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "cin",
+      "label": "Cervical intraepithelial neoplasia (CIN)",
+      "group": "Cervical conditions",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "cirrhosis_mild",
+      "label": "Cirrhosis, mild (compensated)",
+      "group": "Cirrhosis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "cirrhosis_severe",
+      "label": "Cirrhosis, severe (decompensated)",
+      "group": "Cirrhosis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "current_breast_cancer",
+      "label": "Current",
+      "group": "Breast Disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "diabetes_gestational_history",
+      "label": "History of gestational diabetes",
+      "group": "Diabetes",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "diabetes_insulin_dependent",
+      "label": "Insulin dependent",
+      "group": "Diabetes",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "diabetes_nephropathy",
+      "label": "Diabetes with nephropathy or severe proliferative retinopathy",
+      "group": "Diabetes",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "diabetes_no_vascular",
+      "label": "Diabetes, no vascular disease, < 20 years duration",
+      "group": "Diabetes",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "diabetes_non_insulin_dependent",
+      "label": "Non-insulin dependent",
+      "group": "Diabetes",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "diabetes_other_vascular_20yrs",
+      "label": "Diabetes, other vascular disease or >= 20 years duration",
+      "group": "Diabetes",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "diabetes_with_vascular",
+      "label": "Diabetes with vascular disease or >= 20 years duration",
+      "group": "Diabetes",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "endometrial_cancer",
+      "label": "Endometrial cancer",
+      "group": "Endometrial cancer",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "endometrial_cancer_continuation",
+      "label": "Endometrial cancer — continuation",
+      "group": "Endometrial cancer",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "endometrial_cancer_initiation",
+      "label": "Endometrial cancer — initiation",
+      "group": "Endometrial cancer",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "endometriosis",
+      "label": "Endometriosis",
+      "group": "Endometriosis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "epilepsy",
+      "label": "Epilepsy",
+      "group": "Epilepsy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "gall_bladder_asymptomatic",
+      "label": "Asymptomatic",
+      "group": "Gall bladder disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "gall_bladder_disease",
+      "label": "Gall bladder disease",
+      "group": "Gall bladder disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "gall_bladder_symptomatic_cholecystectomy",
+      "label": "Symptomatic, treated by cholecystectomy",
+      "group": "Gall bladder disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "gall_bladder_symptomatic_current",
+      "label": "Symptomatic, current",
+      "group": "Gall bladder disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "gall_bladder_symptomatic_medical",
+      "label": "Symptomatic, medically treated",
+      "group": "Gall bladder disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "gestational_trophoblastic_disease",
+      "label": "Gestational trophoblastic disease",
+      "group": "Gestational trophoblastic disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "gtd_decreasing_hcg",
+      "label": "Decreasing or undetectable β-hCG levels",
+      "group": "Gestational trophoblastic disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "gtd_elevated_hcg_or_malignant",
+      "label": "Persistently elevated β-hCG levels or malignant disease",
+      "group": "Gestational trophoblastic disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "headache_non_migranous",
+      "label": "Non-migranous headache",
+      "group": "Headaches",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "high_risk_hiv_sti",
+      "label": "High risk of HIV infection / STI",
+      "group": "HIV",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "history_cholestasis",
+      "label": "History of cholestasis",
+      "group": "History of cholestasis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "history_cholestasis_past_oc_related",
+      "label": "History of cholestasis, past OC-related",
+      "group": "History of cholestasis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "history_pelvic_surgery",
+      "label": "History of pelvic surgery (see postpartum)",
+      "group": "History of pelvic surgery",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "history_pregnancy_hypertension",
+      "label": "History of high blood pressure in pregnancy",
+      "group": "History of high blood pressure in pregnancy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "hiv_high_risk",
+      "label": "High risk of HIV infection",
+      "group": "HIV",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "hiv_mild_stage",
+      "label": "HIV infection, mild stage (asymptomatic)",
+      "group": "HIV",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "hiv_severe_stage",
+      "label": "HIV infection, severe stage (symptomatic)",
+      "group": "HIV",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "hypertension_controlled",
+      "label": "Hypertension, controlled on medication",
+      "group": "Hypertension",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "hypertension_elevated_140_159",
+      "label": "Elevated blood pressure: systolic 140–159 or diastolic 90–99 mmHg",
+      "group": "Hypertension",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "hypertension_elevated_160_plus",
+      "label": "Elevated blood pressure: systolic >= 160 or diastolic >= 100 mmHg",
+      "group": "Hypertension",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "hypertension_uncontrolled",
+      "label": "Hypertension, uncontrolled",
+      "group": "Hypertension",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "hypertension_vascular_disease",
+      "label": "Hypertension with vascular disease",
+      "group": "Hypertension",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "increased_risk_stis",
+      "label": "Increased risk of STIs",
+      "group": "Sexually transmitted infections",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "iron_deficient_anaemia",
+      "label": "Iron-deficient anaemia",
+      "group": "Iron-deficient anaemia",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "known_dyslipidaemias",
+      "label": "Known dyslipidaemias",
+      "group": "Known dyslipidaemias",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "known_hiv_on_art",
+      "label": "HIV infection, on antiretroviral therapy",
+      "group": "HIV",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "known_thrombogenic_mutations",
+      "label": "Known thrombogenic mutations",
+      "group": "Known thrombogenic mutations",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "liver_tumours_benign",
+      "label": "Liver tumours, benign",
+      "group": "Liver tumours",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "liver_tumours_malignant",
+      "label": "Liver tumours, malignant",
+      "group": "Liver tumours",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "malaria",
+      "label": "Malaria",
+      "group": "Malaria",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "migraine_no_aura",
+      "label": "Migraine without aura",
+      "group": "Headaches",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "migraine_no_aura_35plus",
+      "label": "Migraine without aura, age >= 35",
+      "group": "Headaches",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "migraine_no_aura_under35",
+      "label": "Migraine without aura, age < 35",
+      "group": "Headaches",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "migraine_with_aura",
+      "label": "Migraine with aura",
+      "group": "Headaches",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "multiple_cvd_risk",
+      "label": "Multiple cardiovascular disease risk factors",
+      "group": "Cardiovascular risk factors",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "nulliparous",
+      "label": "Nulliparous",
+      "group": "Parity",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "obesity_adolescent_bmi30",
+      "label": "Menarche to < 18 years and >= 30 kg/m² BMI",
+      "group": "Obesity",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "obesity_bmi30",
+      "label": "Obesity, BMI >= 30 kg/m²",
+      "group": "Obesity",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "ovarian_cancer_continuation",
+      "label": "Ovarian cancer — continuation",
+      "group": "Ovarian cancer",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "ovarian_cancer_initiation",
+      "label": "Ovarian cancer — initiation",
+      "group": "Ovarian cancer",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "parous",
+      "label": "Parous",
+      "group": "Parity",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "past_breast_cancer_5yrs",
+      "label": "Past and no evidence of current disease for 5 years",
+      "group": "Breast Disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "past_ectopic_pregnancy",
+      "label": "Past ectopic pregnancy",
+      "group": "Past ectopic pregnancy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "pid_current",
+      "label": "Current PID",
+      "group": "Pelvic Inflammatory Disease (PID)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "pid_past_no_subsequent_pregnancy",
+      "label": "Past PID, without subsequent pregnancy",
+      "group": "Pelvic Inflammatory Disease (PID)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "pid_past_with_subsequent_pregnancy",
+      "label": "Past PID, with subsequent pregnancy",
+      "group": "Pelvic Inflammatory Disease (PID)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "post_abortion_first_trimester",
+      "label": "Post-abortion, first trimester",
+      "group": "Post-abortion",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "post_abortion_second_trimester",
+      "label": "Post-abortion, second trimester",
+      "group": "Post-abortion",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "post_abortion_septic",
+      "label": "Post-abortion, immediately post septic abortion",
+      "group": "Post-abortion",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "postpartum_48h_4wk",
+      "label": "48 hours to < 4 weeks postpartum, not breastfeeding",
+      "group": "Postpartum (not breastfeeding)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "postpartum_4_6wk",
+      "label": "4 to < 6 weeks postpartum, not breastfeeding",
+      "group": "Postpartum (not breastfeeding)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "postpartum_6wk_plus",
+      "label": ">= 6 weeks postpartum, not breastfeeding",
+      "group": "Postpartum (not breastfeeding)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "postpartum_non_breastfeeding",
+      "label": "Postpartum, not breastfeeding",
+      "group": "Postpartum (not breastfeeding)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "postpartum_puerperal_sepsis",
+      "label": "Postpartum, puerperal sepsis",
+      "group": "Postpartum (not breastfeeding)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "postpartum_vte_risk",
+      "label": "Postpartum, with risk factors for VTE",
+      "group": "Postpartum (not breastfeeding)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "pregnancy",
+      "label": "Pregnancy",
+      "group": "Pregnancy",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "schistosomiasis_fibrosis",
+      "label": "Schistosomiasis, fibrosis of the liver",
+      "group": "Schistosomiasis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "schistosomiasis_uncomplicated",
+      "label": "Schistosomiasis, uncomplicated",
+      "group": "Schistosomiasis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "severe_dysmenorrhoea",
+      "label": "Severe dysmenorrhoea",
+      "group": "Severe dysmenorrhoea",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "sickle_cell_disease",
+      "label": "Sickle cell disease",
+      "group": "Sickle cell disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "sle_antiphospholipid_positive",
+      "label": "Systemic lupus erythematosus, antiphospholipid antibody positive",
+      "group": "Systemic lupus erythematosus (SLE)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "sle_immunosuppressive_treatment",
+      "label": "SLE on immunosuppressive treatment",
+      "group": "Systemic lupus erythematosus (SLE)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "sle_none_of_above",
+      "label": "SLE, none of the above",
+      "group": "Systemic lupus erythematosus (SLE)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "sle_severe_thrombocytopenia",
+      "label": "SLE with severe thrombocytopenia",
+      "group": "Systemic lupus erythematosus (SLE)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "smoking_35_plus",
+      "label": "Age >= 35",
+      "group": "Smoking",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "smoking_35_plus_15plus_cig",
+      "label": "Age >= 35, >= 15 cigarettes/day",
+      "group": "Smoking",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "smoking_35_plus_under15cig",
+      "label": "Age >= 35, < 15 cigarettes/day",
+      "group": "Smoking",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "smoking_under_35",
+      "label": "Age < 35",
+      "group": "Smoking",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "sti_current_purulent",
+      "label": "Current STI: purulent cervicitis, gonorrhoea or chlamydia",
+      "group": "Sexually transmitted infections",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "sti_other",
+      "label": "Other STIs (e.g. herpes simplex, syphilis, chlamydia)",
+      "group": "Sexually transmitted infections",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "stroke_history",
+      "label": "History of stroke",
+      "group": "Stroke",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "superficial_venous_thrombosis",
+      "label": "Superficial venous thrombosis",
+      "group": "Superficial venous thrombosis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "thalassaemia",
+      "label": "Thalassaemia",
+      "group": "Thalassaemia",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "thyroid_hyperthyroid",
+      "label": "Hyperthyroid",
+      "group": "Thyroid disorders",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "thyroid_hypothyroid",
+      "label": "Hypothyroid",
+      "group": "Thyroid disorders",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "thyroid_simple_goitre",
+      "label": "Simple goitre",
+      "group": "Thyroid disorders",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "tuberculosis_non_pelvic",
+      "label": "Tuberculosis, non-pelvic",
+      "group": "Tuberculosis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "tuberculosis_pelvic",
+      "label": "Tuberculosis, pelvic",
+      "group": "Tuberculosis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "unexplained_vaginal_bleeding",
+      "label": "Unexplained vaginal bleeding (evaluation pending)",
+      "group": "Unexplained vaginal bleeding",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "uterine_fibroids_no_distortion",
+      "label": "Uterine fibroids without cavity distortion",
+      "group": "Uterine fibroids",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "uterine_fibroids_with_distortion",
+      "label": "Uterine fibroids distorting the cavity",
+      "group": "Uterine fibroids",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "vaginal_bleeding_heavy",
+      "label": "Vaginal bleeding, heavy",
+      "group": "Vaginal bleeding pattern",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "vaginal_bleeding_irregular",
+      "label": "Vaginal bleeding, irregular",
+      "group": "Vaginal bleeding pattern",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "vaginitis",
+      "label": "Vaginitis (excluding Trichomonas vaginalis and bacterial vaginosis)",
+      "group": "Sexually transmitted infections",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "valvular_heart_disease_complicated",
+      "label": "Valvular heart disease, complicated",
+      "group": "Valvular heart disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "valvular_heart_disease_uncomplicated",
+      "label": "Valvular heart disease, uncomplicated",
+      "group": "Valvular heart disease",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "varicose_veins",
+      "label": "Varicose veins",
+      "group": "Varicose veins",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "viral_hepatitis_active",
+      "label": "Viral hepatitis, active",
+      "group": "Viral hepatitis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "viral_hepatitis_carrier",
+      "label": "Viral hepatitis, carrier (HBsAg positive)",
+      "group": "Viral hepatitis",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "vte_current",
+      "label": "Current DVT/PE (on anticoagulant therapy)",
+      "group": "Current DVT/PE (blood clots)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    },
+    {
+      "id": "vte_history",
+      "label": "History of DVT/PE (blood clots)",
+      "group": "History of DVT/PE (blood clots)",
+      "init_cont": null,
+      "source": "WHO MEC 5th edition (2015)",
+      "verified": false
+    }
+  ]
+}

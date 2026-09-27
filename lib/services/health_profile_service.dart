@@ -261,6 +261,7 @@ class HealthProfileService {
     required String prediction,
     required double pcosProbability,
     required String modelUsed,
+    String? riskLevel,
   }) {
     return updateProfile((p) {
       final updatedHistory = List<PcosCheckResult>.from(p.pcosHistory)
@@ -270,6 +271,7 @@ class HealthProfileService {
             prediction: prediction,
             pcosProbability: pcosProbability,
             modelUsed: modelUsed,
+            riskLevel: riskLevel,
           ),
         );
       return p.copyWith(pcosHistory: updatedHistory);

@@ -145,31 +145,73 @@ class BackendLauncher {
 
   /// Locates a usable Python interpreter, preferring the project's own
   /// virtual environment over anything on PATH.
+  ///
+  /// A candidate is only accepted if it can actually import the packages the
+  /// server needs. Finding "a python" is not enough: the launcher used to fall
+  /// back to whatever `python` was on PATH, which on a machine without the
+  /// dependencies produced a server that died on startup and left the user with
+  /// the same "could not reach the server" error with nothing to act on.
   static String? resolvePython() {
     final root = resolveBackendRoot();
+    final sep = Platform.pathSeparator;
+    final exe = Platform.isWindows ? 'python.exe' : 'python';
 
-    if (root != null) {
-      final sep = Platform.pathSeparator;
-      // The venv is a sibling of pcos_ml_project, inside the repo root.
-      final venvDir = '${root.path}$sep..$sep.venv';
-      final venv = Platform.isWindows
-          ? '$venvDir${sep}Scripts${sep}python.exe'
-          : '$venvDir${sep}bin${sep}python';
-      if (File(venv).existsSync()) return venv;
+    // Every layout this repo has actually used, most specific first. The venv
+    // is inside pcos_ml_project as `venv`; an earlier version looked only for
+    // `../.venv` next to the folder, which does not exist, so auto-start
+    // silently fell through to PATH on every launch.
+    String inVenv(String base, String name) {
+      final bin = Platform.isWindows ? 'Scripts' : 'bin';
+      return '$base$sep$name$sep$bin$sep$exe';
     }
 
-    // Fall back to whatever python is on PATH.
-    for (final candidate in ['python', 'python3']) {
-      try {
-        final result = Process.runSync(candidate, [
-          '--version',
-        ], runInShell: true);
-        if (result.exitCode == 0) return candidate;
-      } catch (_) {
-        // Not on PATH; try the next one.
+    final venvCandidates = <String>[
+      if (root != null) ...[
+        inVenv(root.path, '.venv'),
+        inVenv(root.path, 'venv'),
+        inVenv('${root.path}$sep..', '.venv'),
+        inVenv('${root.path}$sep..', 'venv'),
+      ],
+    ];
+
+    for (final candidate in venvCandidates) {
+      if (File(candidate).existsSync() && _canServe(candidate)) {
+        return candidate;
       }
     }
+
+    // Last resort: whatever python is on PATH, but only if it can actually run
+    // the server.
+    for (final candidate in ['python', 'python3']) {
+      if (_canServe(candidate)) return candidate;
+    }
     return null;
+  }
+
+  /// Whether [python] can import what `uvicorn app_backend.main:app` needs.
+  ///
+  /// A cheap import check is far better than discovering the problem 45
+  /// seconds later as a poll timeout with no explanation.
+  static bool _canServe(String python) {
+    // Only bare command names need a shell. `runInShell: true` hands the
+    // command line to cmd.exe unquoted, so an absolute path containing a space
+    // -- and this repo's does, "reproductive-health app" -- is split at the
+    // space and the probe fails, which silently demoted the project venv in
+    // favour of PATH python. Process.start, used for the real spawn, does not
+    // have this problem, so the probe must not introduce it.
+    final isAbsolute =
+        Platform.isWindows && (python.contains(':\\') || python.startsWith('\\\\'));
+    try {
+      final result = Process.runSync(
+        python,
+        ['-c', 'import uvicorn, fastapi, app_backend.main'],
+        runInShell: !isAbsolute,
+        workingDirectory: resolveBackendRoot()?.path,
+      );
+      return result.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Ensures a backend is available, starting one if needed.

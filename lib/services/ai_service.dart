@@ -77,6 +77,33 @@ class ChatAttachment {
 }
 
 class AiService {
+  /// The backend caps `history` at 10 entries (`ChatRequest.history` in
+  /// `main.py`), and rejects anything longer with a 422. The chat screen hands
+  /// us the whole conversation, so without trimming here the seventh turn
+  /// would be rejected outright and the chat would stop working.
+  static const int maxHistoryEntries = 10;
+
+  /// The backend also caps each history message at 4000 characters.
+  static const int maxHistoryMessageChars = 4000;
+
+  /// Trims history to what the server accepts: the most recent
+  /// [maxHistoryEntries] entries, each clipped to [maxHistoryMessageChars].
+  /// Public and pure so it can be unit-tested against the server's limits.
+  static List<Map<String, String>> encodeHistory(
+    List<ConversationEntry> history,
+  ) {
+    final recent = history.length > maxHistoryEntries
+        ? history.sublist(history.length - maxHistoryEntries)
+        : history;
+
+    return recent.map((e) {
+      final text = e.message.length > maxHistoryMessageChars
+          ? e.message.substring(0, maxHistoryMessageChars)
+          : e.message;
+      return <String, String>{'role': e.role, 'message': text};
+    }).toList();
+  }
+
   Future<AiResponse> sendMessage({
     required String message,
     required List<ConversationEntry> history,
@@ -103,9 +130,7 @@ class AiService {
           body: jsonEncode({
             'message': message,
             'language': language,
-            'history': history
-                .map((e) => {'role': e.role, 'message': e.message})
-                .toList(),
+            'history': encodeHistory(history),
             // ignore: use_null_aware_elements
             if (profileContext != null) 'profile_context': profileContext,
             // ignore: use_null_aware_elements

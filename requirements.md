@@ -113,16 +113,19 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 
 | ID | Requirement | Implementation |
 |---|---|---|
-| FR-17 | The system shall accept exactly **22** clinical/lifestyle fields and return `{prediction, pcos_probability, model_used}`. | `POST /predict` |
+| FR-17 | The system shall accept exactly **22** clinical/lifestyle fields (of which **21** become model inputs — see FR-17h) and return `{prediction, pcos_probability, model_used, risk_level, risk_label, screening_advice}`. | `POST /predict` |
 | FR-17a | The 22 required field keys are: `age_yrs, weight_kg, height_cm, cycle_regularity, cycle_length_days, prl, vit_d3, prg, rbs, bp_systolic, bp_diastolic, follicle_no_l, follicle_no_r, avg_f_size_l, avg_f_size_r, endometrium, weight_gain, hair_growth, skin_darkening, hair_loss, pimples, fast_food, regular_exercise`. | `REQUIRED_FIELDS` |
 | FR-17b | BMI shall be **derived server-side** as `weight_kg / (height_cm/100)²` — it is a model feature but is never sent by the client. | `build_feature_vector` |
-| FR-17c | Features shall be assembled in the exact order given by `model_metadata.json::feature_order` (22 entries, BMI at index 1), then scaled with the persisted scaler before prediction. | same |
-| FR-17d | `cycle_regularity` shall encode as Regular→**2**, Irregular→**4** (not 0/1 — this matches the training dataset's encoding). | `CYCLE_ENCODING` |
+| FR-17c | Features shall be assembled in the exact order given by `model_metadata.json::feature_order` (21 entries, BMI at index 1), then scaled with the persisted scaler before prediction. | same |
+| FR-17h | `cycle_length_days` shall be accepted and range-validated (10-90) and stored in the user's profile, but shall **not** be a model input. The training column of that name holds 12 integer codes in 0-12, not days, so real user values all fell past the trained maximum and collapsed into one leaf. Dropping it moved ROC AUC 0.9582→0.9589. | `build_feature_vector` || FR-17d | `cycle_regularity` shall encode as Regular→**2**, Irregular→**4** (not 0/1 — this matches the training dataset's encoding). | `CYCLE_ENCODING` |
 | FR-17e | All Yes/No fields shall encode via `BINARY_ENCODING` (Yes→1, No→0), case-insensitively via `.capitalize()`. | `encode_binary` |
 | FR-17f | Missing fields shall return **422** naming every missing field. Invalid categorical values shall return **422** naming the offending field and the value received. | `predict()` |
 | FR-17g | Model/library exceptions shall return a **500** with a generic user-facing message; internal details shall never be leaked in the response. | `predict()` |
-| FR-18 | The system shall report which trained model produced the prediction (`model_metadata.json::model_name` — currently `NaiveBayes`, calibrated). | `/predict` response |
+| FR-18 | The system shall report which trained model produced the prediction (`model_metadata.json::model_name` — currently `RandomForest`, calibrated). | `/predict` response |
 | FR-19 | Prediction output labels shall be exactly `"PCOS Detected"` / `"No PCOS Detected"`; probability shall be the class-1 probability rounded to 4 decimals. | `predict()` |
+| FR-19a | `/predict` shall additionally report a screening band, because a 0.5 cutoff catches only ~75% of true cases out-of-fold: `risk_level` = `low` (< 0.35), `elevated` (0.35-0.5), `high` (>= 0.5), with `risk_label` and `screening_advice`. `prediction` shall keep the 0.5 boundary so existing clients are unaffected. | `predict()` |
+| FR-19b | The Flutter client shall treat `risk_level` / `risk_label` / `screening_advice` as optional and derive the same bands from `pcos_probability` when absent, so an older backend still renders correctly. | `PcosResult` |
+| FR-19c | Diary entries shall persist `risk_level`; entries written before this field existed shall fall back to the probability-derived band. | `PcosCheckResult` |
 | FR-20 | Each completed PCOS check shall be appended to `pcosHistory` in the user's profile with date, prediction, probability, and model name. | `appendPcosResult` |
 | FR-21 | On a successful PCOS check, the form shall write the entered age, weight, height, cycle regularity, and cycle length back to the profile alongside the result. | `pcos_screen.dart::_runDetection` |
 | FR-22 | The PCOS form shall pre-populate age/weight/height from the stored profile when those fields are empty and profile values exist. | `pcos_screen.dart` (lines ~82–93) |
@@ -158,6 +161,7 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | FR-38 | Each user and assistant turn shall be appended to the profile's `conversationLog` with timestamp, role, message, and session ID. | `appendConversationEntry` |
 | FR-39 | The user shall be able to start a new chat session (new `sessionId`) and browse prior sessions from history. | `ai_checkin_screen.dart::_startNewChat`, `_openHistory` |
 | FR-40 | When `privacySettings.aiMemoryEnabled` is false, prior history shall **not** be sent to the model; the conversation shall start fresh each turn. | `ai_checkin_screen.dart` |
+| FR-40a | The client shall send at most the **10 most recent** history entries, each clipped to **4000** characters, matching `ChatRequest.history` and `_validate_chat_request` on the server. Without this the seventh turn is rejected with a 422 and chat stops working. | `AiService.encodeHistory` |
 | FR-41 | The `/chat` endpoint shall require authentication, preventing anonymous consumption of the API key quota. | `app_backend/main.py::chat_endpoint` |
 
 ### 5.6 Bilingual Support (English / Urdu)
@@ -447,7 +451,7 @@ ASGI entry point → `app_backend.main:app`, started by `uvicorn app_backend.mai
 | AC-02 | FR-01b | Registering an existing email returns 409, not a duplicate account. |
 | AC-03 | FR-02a | Nine consecutive failed sign-ins from one client for one email return 429. |
 | AC-04 | FR-03b | After a successful password reset, a previously issued token is rejected. |
-| AC-05 | FR-17 | Submitting a valid 22-field form returns a prediction label, a probability in [0,1] to 4dp, and the persisted model name `NaiveBayes`. |
+| AC-05 | FR-17 | Submitting a valid 22-field form returns a prediction label, a probability in [0,1] to 4dp, the persisted model name `RandomForest`, and a `risk_level` in {low, elevated, high}. |
 | AC-06 | FR-17f | Omitting `prl` returns 422 naming `prl`. Sending `cycle_regularity: "Maybe"` returns 422 naming the field and the value. |
 | AC-07 | FR-17b | Two requests with identical inputs except height produce different results, confirming BMI derivation is live. |
 | AC-08 | FR-26 | Submitting selected conditions returns a category 1–4 for each of the 10 modeled methods when classified. |
@@ -467,6 +471,8 @@ ASGI entry point → `app_backend.main:app`, started by `uvicorn app_backend.mai
 | AC-22 | FR-21 | After running a PCOS check, the Diary's Profile tab shows the entered age, weight, height, and reproductive inputs. |
 | AC-23 | FR-93 | Switching tabs and returning preserves each tab's scroll position and form state. |
 | AC-24 | NFR-02 | `/predict` responds in under 1 second measured server-side. |
+| AC-25 | FR-19a | p=0.3504 returns `prediction="No PCOS Detected"` **and** `risk_level="elevated"`. A clearly high profile (p=0.856) returns `risk_level="high"`; a clean profile (p=0.057) returns `risk_level="low"`. |
+| AC-26 | FR-40a | A 25-entry conversation serializes to 10 history entries, and a 9000-character message is clipped to 4000. The resulting request is accepted by `/chat` (verified: 10x4000 chars = ~41 KB, HTTP 200), whereas the untrimmed payload returns 422. |
 
 ---
 
@@ -499,9 +505,9 @@ Ordered by priority. This is the actionable backlog after Phase 1.
 | Objective | Functional requirements | Acceptance criteria |
 |---|---|---|
 | OBJ-01 Cycle tracking | FR-08 … FR-16 | AC-23 |
-| OBJ-02 PCOS screening | FR-17 … FR-22 | AC-05, AC-06, AC-07, AC-22, AC-24 |
+| OBJ-02 PCOS screening | FR-17 … FR-22 | AC-05, AC-06, AC-07, AC-22, AC-24, AC-25 |
 | OBJ-03 Contraceptive guidance | FR-23 … FR-29 | AC-08, AC-09, AC-10 |
-| OBJ-04 AI check-in | FR-30 … FR-41, AI-01 … AI-09 | AC-20, AC-21 |
+| OBJ-04 AI check-in | FR-30 … FR-41, AI-01 … AI-09 | AC-20, AC-21, AC-26 |
 | OBJ-05 Unified diary | FR-72 … FR-86 | AC-11, AC-12, AC-13 |
 | OBJ-06 Urdu support | FR-42 … FR-48 | AC-14, AC-15 |
 | OBJ-07 Attachments | FR-49 … FR-71 | AC-16, AC-17, AC-18, AC-19 |
