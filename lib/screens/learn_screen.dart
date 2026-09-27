@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_brand.dart';
+import '../widgets/app_card.dart';
 
 class QAItem {
   final String question;
@@ -8,14 +10,14 @@ class QAItem {
 }
 
 class TopicItem {
-  final String emoji;
+  final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
   final List<QAItem> qa;
 
   const TopicItem({
-    required this.emoji,
+    required this.icon,
     required this.title,
     required this.subtitle,
     required this.color,
@@ -28,7 +30,7 @@ class LearnScreen extends StatelessWidget {
 
   static final List<TopicItem> _topics = [
     TopicItem(
-      emoji: '⚕️',
+      icon: Icons.accessibility_rounded,
       title: 'Anatomy',
       subtitle: 'Reproductive system basics',
       color: AppColors.accent,
@@ -48,7 +50,7 @@ class LearnScreen extends StatelessWidget {
       ],
     ),
     TopicItem(
-      emoji: '🧬',
+      icon: Icons.biotech_rounded,
       title: 'Hormones',
       subtitle: 'How they affect your cycle',
       color: AppColors.primary,
@@ -68,7 +70,7 @@ class LearnScreen extends StatelessWidget {
       ],
     ),
     TopicItem(
-      emoji: '🛡️',
+      icon: Icons.health_and_safety_rounded,
       title: 'STIs',
       subtitle: 'Common infections & prevention',
       color: AppColors.textPrimary,
@@ -88,7 +90,7 @@ class LearnScreen extends StatelessWidget {
       ],
     ),
     TopicItem(
-      emoji: '🩸',
+      icon: Icons.water_drop_rounded,
       title: 'Menstruation',
       subtitle: "What's normal, what's not",
       color: AppColors.periodRed,
@@ -108,7 +110,7 @@ class LearnScreen extends StatelessWidget {
       ],
     ),
     TopicItem(
-      emoji: '❌',
+      icon: Icons.sentiment_very_dissatisfied_rounded,
       title: 'Myths',
       subtitle: 'Debunking common myths',
       color: AppColors.primary,
@@ -153,14 +155,24 @@ class LearnScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.gutter,
+          vertical: AppSpacing.md,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
-            const SizedBox(height: 20),
-            _sectionHeading('TOPICS'),
-            const SizedBox(height: 12),
+            AppWordmark(
+              trailing: Text(
+                _formattedDate(),
+                style: AppTextStyles.sans(
+                  size: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            const AppSectionHeader(label: 'Topics'),
             _buildTopicGrid(context),
           ],
         ),
@@ -168,97 +180,62 @@ class LearnScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Wellness ',
-                style: AppTextStyles.serif(
-                  size: 22,
-                  weight: FontWeight.w600,
-                  color: AppColors.accent,
-                ).copyWith(fontStyle: FontStyle.italic),
-              ),
-              TextSpan(
-                text: 'Saheli',
-                style: AppTextStyles.serif(
-                  size: 22,
-                  weight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          _formattedDate(),
-          style: AppTextStyles.sans(size: 11, color: AppColors.textSecondary),
-        ),
-      ],
-    );
-  }
-
-  Widget _sectionHeading(String text) {
-    return Text(
-      text,
-      style: AppTextStyles.sans(
-        size: 11,
-        weight: FontWeight.w600,
-        color: AppColors.textSecondary,
-      ),
-    );
-  }
-
   Widget _buildTopicGrid(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: _topics.map((topic) {
-        return SizedBox(
-          width: (MediaQuery.of(context).size.width - 20 * 2 - 12) / 2,
-          child: _topicCard(context, topic),
+    // Sized off the incoming constraint, not `MediaQuery.size.width`. The shell
+    // caps content at 640px, so on a wide window the viewport width made each
+    // card wider than the box it sat in and it overflowed.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = AppSpacing.sm;
+        final cardWidth = (constraints.maxWidth - spacing) / 2;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: _topics
+              .map(
+                (topic) => SizedBox(
+                  width: cardWidth,
+                  child: _topicCard(context, topic),
+                ),
+              )
+              .toList(),
         );
-      }).toList(),
+      },
     );
   }
 
   Widget _topicCard(BuildContext context, TopicItem topic) {
-    return GestureDetector(
+    return AppCard(
       onTap: () => _showTopicSheet(context, topic),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: Column(
-          children: [
-            Text(topic.emoji, style: const TextStyle(fontSize: 26)),
-            const SizedBox(height: 10),
-            Text(
-              topic.title,
-              style: AppTextStyles.sans(
-                size: 13,
-                weight: FontWeight.w700,
-                color: topic.color,
-              ),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
+      child: Column(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: topic.color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 4),
-            Text(
-              topic.subtitle,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.sans(
-                size: 10,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
+            child: Icon(topic.icon, size: 23, color: topic.color),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            topic.title,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.sans(size: 14, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            topic.subtitle,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.sans(
+              size: 11.5,
+              color: AppColors.textSecondary,
+            ).copyWith(height: 1.3),
+          ),
+        ],
       ),
     );
   }
@@ -266,11 +243,9 @@ class LearnScreen extends StatelessWidget {
   void _showTopicSheet(BuildContext context, TopicItem topic) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      // Shape, background and drag handle all come from `bottomSheetTheme`
+      // now, instead of being re-specified per sheet.
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (sheetContext) {
         return SafeArea(
           child: ConstrainedBox(
@@ -278,31 +253,46 @@ class LearnScreen extends StatelessWidget {
               maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
             ),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        topic.title == 'Anatomy'
-                            ? 'Reproductive Anatomy'
-                            : topic.title,
-                        style: AppTextStyles.serif(size: 18),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(sheetContext),
-                        child: Icon(
-                          Icons.close,
-                          size: 20,
-                          color: AppColors.textSecondary,
+                      Container(
+                        width: 34,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: topic.color.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
                         ),
+                        child: Icon(topic.icon, size: 18, color: topic.color),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          topic.title == 'Anatomy'
+                              ? 'Reproductive Anatomy'
+                              : topic.title,
+                          style: AppTextStyles.serif(size: 19),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        icon: const Icon(Icons.close, size: 20),
+                        color: AppColors.textSecondary,
+                        tooltip: 'Close',
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.xs),
                   for (int i = 0; i < topic.qa.length; i++) ...[
                     _qaBlock(topic.qa[i], topic.color),
                     if (i != topic.qa.length - 1)
@@ -327,19 +317,13 @@ class LearnScreen extends StatelessWidget {
         Text(
           qa.question,
           style: AppTextStyles.sans(
-            size: 13,
+            size: 14,
             weight: FontWeight.w700,
             color: color,
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          qa.answer,
-          style: AppTextStyles.sans(
-            size: 12,
-            color: AppColors.textSecondary,
-          ).copyWith(height: 1.5),
-        ),
+        Text(qa.answer, style: AppTextStyles.body()),
       ],
     );
   }

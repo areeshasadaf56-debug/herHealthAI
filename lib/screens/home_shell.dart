@@ -106,72 +106,127 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.cardBorder)),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 6),
+      bottomNavigationBar: _buildNavBar(context),
+    );
+  }
+
+  Widget _buildNavBar(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final surface = Theme.of(context).colorScheme.surface;
+
+    // A soft upward shadow instead of a hard 1px rule: the bar reads as
+    // floating above the content rather than as a line drawn across it.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: surface,
+        boxShadow: [
+          BoxShadow(
+            color: dark ? const Color(0x59000000) : const Color(0x143B2060),
+            blurRadius: 14,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      // Material so each destination can show a real ink ripple.
+      child: Material(
+        color: Colors.transparent,
         child: SafeArea(
           top: false,
           // A bare `Center` expands to fill ALL the height the Scaffold
           // offers the bottomNavigationBar slot, which leaves the body with
           // zero height and renders the page blank. A `Row` derives its
           // height from its children, so it cannot starve the body.
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
-                  child: Row(
-                    children: List.generate(_navItems.length, (i) {
-                      final item = _navItems[i];
-                      final active = _tabIndex == i;
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _tabIndex = i),
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 2,
-                              vertical: 6,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  item.icon,
-                                  size: 18,
-                                  color: active
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  item.shortLabel,
-                                  style: AppTextStyles.sans(
-                                    size: 7.5,
-                                    weight: active
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                    color: active
-                                        ? AppColors.primary
-                                        : AppColors.textSecondary,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: Row(
+                      children: List.generate(_navItems.length, (i) {
+                        final item = _navItems[i];
+                        return Expanded(
+                          child: _NavDestination(
+                            item: item,
+                            active: _tabIndex == i,
+                            onTap: () => setState(() => _tabIndex = i),
                           ),
-                        ),
-                      );
-                    }),
+                        );
+                      }),
+                    ),
                   ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One destination in the bottom bar.
+///
+/// The active state is a soft pill behind the icon rather than a colour swap
+/// alone, which keeps the current tab locatable at a glance and gives the bar
+/// a focus colour for users who can't rely on the lavender/grey contrast.
+class _NavDestination extends StatelessWidget {
+  final _NavItem item;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _NavDestination({
+    required this.item,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tone = active ? scheme.primary : scheme.onSurfaceVariant;
+
+    return Semantics(
+      button: true,
+      selected: active,
+      label: item.label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.brPill,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: active
+                      ? scheme.primary.withValues(alpha: 0.13)
+                      : Colors.transparent,
+                  borderRadius: AppRadius.brPill,
+                ),
+                child: Icon(item.icon, size: 20, color: tone),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                item.shortLabel,
+                style: AppTextStyles.sans(
+                  size: 9.5,
+                  weight: active ? FontWeight.w700 : FontWeight.w500,
+                  color: tone,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

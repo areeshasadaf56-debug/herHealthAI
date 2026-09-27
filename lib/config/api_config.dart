@@ -26,12 +26,41 @@ class ApiConfig {
   /// Correct for Windows desktop, iOS simulator, and macOS desktop.
   static const String _loopback = 'http://127.0.0.1:8000';
 
+  /// The deployed PythonAnywhere host, written down in exactly one place.
+  ///
+  /// This is deliberately NOT a default. The resolution order in [baseUrl]
+  /// still falls through to emulator/loopback, so a plain `flutter run`
+  /// keeps talking to the local backend and local development is never
+  /// silently pointed at production. Reach it in one of two explicit ways:
+  ///
+  ///   flutter run -d chrome --dart-define=API_BASE_URL=https://...
+  ///   .\run_app.ps1 -Backend live
+  static const String productionBaseUrl =
+      'https://areeshasadaf56.pythonanywhere.com';
+
+  /// Hosts that mean "a backend on this machine".
+  static const Set<String> _localHosts = {'127.0.0.1', 'localhost', '10.0.2.2'};
+
+  /// True when [baseUrl] points at the shared deployed host rather than at
+  /// a backend on this machine.
+  ///
+  /// Compared against the host name rather than the scheme, because a plain
+  /// `flutter run` also produces an `http://` URL -- loopback and the
+  /// emulator alias are local, not remote.
+  static bool get isRemote {
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null || uri.host.isEmpty) return false;
+    return !_localHosts.contains(uri.host);
+  }
+
   static String get baseUrl {
     if (_override.isNotEmpty) return _override;
     // kIsWeb must be checked first: on web `dart:io` is a stub that throws
     // `UnsupportedError` on any access, so Platform.* cannot be touched.
     if (kIsWeb) return _loopback;
-    if (defaultTargetPlatform == TargetPlatform.android) return _androidEmulator;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return _androidEmulator;
+    }
     return _loopback;
   }
 

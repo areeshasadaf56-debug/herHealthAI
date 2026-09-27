@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cycle_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_brand.dart';
 import '../widgets/app_text_field.dart';
 import 'sign_up_screen.dart';
 import 'forgot_password_screen.dart';
@@ -89,67 +90,16 @@ class _SignInScreenState extends State<SignInScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Center(
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.18,
-                                  ),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'ðŸŒ¸',
-                                style: TextStyle(fontSize: 28),
-                              ),
-                            ),
+                        Center(child: const AppLogoMark(size: 72)),
+                        const SizedBox(height: AppSpacing.sm),
+                        const Center(
+                          child: AppWordmark(
+                            size: 26,
+                            centered: true,
+                            subtitle: 'Welcome back. Sign in to continue.',
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Center(
-                          child: RichText(
-                            text: TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: 'Wellness ',
-                                  style: AppTextStyles.serif(
-                                    size: 24,
-                                    weight: FontWeight.w600,
-                                    color: AppColors.accent,
-                                  ).copyWith(fontStyle: FontStyle.italic),
-                                ),
-                                TextSpan(
-                                  text: 'Saheli',
-                                  style: AppTextStyles.serif(
-                                    size: 24,
-                                    weight: FontWeight.w600,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: Text(
-                            'Welcome back. Sign in to continue.',
-                            style: AppTextStyles.sans(
-                              size: 13,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 36),
+                        const SizedBox(height: AppSpacing.xl),
                         AppTextField(
                           label: 'Email',
                           controller: _emailController,
@@ -206,17 +156,11 @@ class _SignInScreenState extends State<SignInScreen> {
                         const SizedBox(height: 12),
                         SizedBox(
                           width: double.infinity,
+                          // No local styleFrom: the themed button already
+                          // carries the radius, min height and a neutral
+                          // disabled state. A local override here was also
+                          // re-specifying `Colors.white` by hand.
                           child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: AppColors.primary
-                                  .withValues(alpha: 0.6),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
                             onPressed: _isSubmitting ? null : _handleSignIn,
                             child: _isSubmitting
                                 ? const SizedBox(
@@ -229,46 +173,44 @@ class _SignInScreenState extends State<SignInScreen> {
                                       ),
                                     ),
                                   )
-                                : Text(
-                                    'Sign In',
-                                    style: AppTextStyles.sans(
-                                      size: 14,
-                                      weight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                                : const Text('Sign In'),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: AppSpacing.md),
                         Center(
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                "Don't have an account? ",
+                                "Don't have an account?",
                                 style: AppTextStyles.sans(
                                   size: 13,
                                   color: AppColors.textSecondary,
                                 ),
                               ),
-                              GestureDetector(
-                                onTap: () {
+                              // A TextButton rather than a GestureDetector on
+                              // a Text: gives the link a real 44pt touch
+                              // target, a ripple, and a proper button role
+                              // for screen readers.
+                              TextButton(
+                                onPressed: () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) =>
-                                          const SignUpScreen(),
+                                      builder: (_) => const SignUpScreen(),
                                     ),
                                   );
                                 },
-                                child: Text(
-                                  'Sign Up',
-                                  style: AppTextStyles.sans(
-                                    size: 13,
-                                    weight: FontWeight.w700,
-                                    color: AppColors.primary,
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(0, 40),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
                                   ),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
+                                child: const Text('Sign Up'),
                               ),
                             ],
                           ),
