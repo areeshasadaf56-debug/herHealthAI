@@ -71,19 +71,48 @@ class MethodResult {
   /// entitled to know a clinician has not signed it off.
   final bool pendingReview;
 
+  /// False when the backend did not send the WHO MEC audit field
+  /// (`pending_review`) for this result.
+  ///
+  /// The reviewed backend always sends it, and returns `category: null` with
+  /// a note for anything it has not verified. The older build still deployed
+  /// at the PythonAnywhere host answers *every* condition with a flat
+  /// `category: 1` across all nine methods and no note at all, so a missing
+  /// audit field means the number is not WHO's guidance and must never be
+  /// presented as an all-clear. It is flagged rather than trusted.
+  final bool serverAudited;
+
+  /// True when this result must carry a caveat, either because a human has
+  /// not signed off the rating or because the server is not the reviewed
+  /// build. Screens use this to decide whether to show the review banner.
+  bool get needsCaveat => pendingReview || !serverAudited;
+
+  /// Shown when the server gave a number without saying where it came from.
+  static const String unverifiedNote =
+      'This rating came from a backend that does not report its WHO MEC '
+      'review status, so it has not been checked against the source. '
+      'Confirm with a qualified provider before relying on it.';
+
   MethodResult({
     required this.methodLabel,
     required this.category,
     this.note,
     this.pendingReview = false,
+    this.serverAudited = true,
   });
 
   factory MethodResult.fromJson(Map<String, dynamic> json) {
+    final audited = json.containsKey('pending_review');
+    final pending = json['pending_review'] as bool? ?? false;
+    final serverNote = json['note'] as String?;
     return MethodResult(
-      methodLabel: json['method_label'] as String,
+      // Tolerant rather than a hard cast: a wrong-shaped server should
+      // produce a flagged row, not an unhandled TypeError in a health app.
+      methodLabel: (json['method_label'] as String?) ?? 'Unknown method',
       category: (json['category'] as num?)?.toInt(),
-      note: json['note'] as String?,
-      pendingReview: json['pending_review'] as bool? ?? false,
+      note: serverNote ?? (audited ? null : unverifiedNote),
+      pendingReview: pending || !audited,
+      serverAudited: audited,
     );
   }
 }
@@ -147,10 +176,17 @@ class EligibilityApiService {
   /// used to throw a FormatException and hide the real status code.
   final String baseUrl;
 
-  EligibilityApiService({String? baseUrl}) : baseUrl = baseUrl ?? ApiConfig.baseUrl;
+  /// Injectable so tests can exercise the real parsing path against a
+  /// scripted response, including the un-audited backend described on
+  /// [MethodResult.serverAudited].
+  final http.Client _client;
+
+  EligibilityApiService({String? baseUrl, http.Client? client})
+    : baseUrl = baseUrl ?? ApiConfig.baseUrl,
+      _client = client ?? http.Client();
 
   Future<List<Condition>> fetchConditions() async {
-    final response = await http.get(Uri.parse('$baseUrl/conditions'));
+    final response = await _client.get(Uri.parse('$baseUrl/conditions'));
     if (response.statusCode != 200) {
       throw _apiError('Loading conditions', response);
     }
@@ -161,7 +197,7 @@ class EligibilityApiService {
   }
 
   Future<List<MethodInfo>> fetchMethodsReference() async {
-    final response = await http.get(Uri.parse('$baseUrl/methods_reference'));
+    final response = await _client.get(Uri.parse('$baseUrl/methods_reference'));
     if (response.statusCode != 200) {
       throw _apiError('Loading methods', response);
     }
@@ -172,7 +208,7 @@ class EligibilityApiService {
   }
 
   Future<List<EffectivenessEntry>> fetchEffectiveness() async {
-    final response = await http.get(Uri.parse('$baseUrl/effectiveness'));
+    final response = await _client.get(Uri.parse('$baseUrl/effectiveness'));
     if (response.statusCode != 200) {
       throw _apiError('Loading effectiveness data', response);
     }
@@ -183,7 +219,7 @@ class EligibilityApiService {
   }
 
   Future<List<MethodResult>> checkEligibility(List<String> conditionIds) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/eligibility'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'condition_ids': conditionIds}),

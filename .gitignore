@@ -4,5 +4,14 @@ __pycache__/
 *.db
 .env
 
+# Flutter build output and tool caches. These are generated, are large, and
+# were previously tracked, which is what made this repository so large.
+# Regenerated automatically by `flutter run` / `flutter build`.
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
 *.jks
 upload-keystore.jks
+
