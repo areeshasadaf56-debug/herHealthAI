@@ -64,12 +64,15 @@ class AuthSession {
 
   /// Called by CycleProvider after a successful sign-in / sign-up /
   /// verification. Keeps the in-memory mirror and the encrypted store
-  /// in sync; null values are left untouched (same as before).
+  /// in sync; null values are left untouched (same as before). Marks
+  /// the session as established so a later ensureLoaded() can never
+  /// clobber this freshly-written state with stale storage contents.
   static Future<void> update({
     String? userId,
     String? token,
     DateTime? expiresAt,
   }) async {
+    _loaded = true;
     if (userId != null) {
       _userId = userId;
       await SecureStore.write(SecureStore.userIdKey, userId);
@@ -90,7 +93,11 @@ class AuthSession {
   /// Signed out / session rejected / expired / 401. Wipes the memory
   /// mirror and the encrypted storage (including legacy plain-text
   /// copies), so every consumer sees "not signed in" immediately.
+  /// Counts as "established" too: after a deliberate sign-out we KNOW
+  /// the session is empty; reloading from storage must not resurrect
+  /// anything.
   static Future<void> clear() async {
+    _loaded = true;
     _userId = null;
     _token = null;
     _expiresAt = null;

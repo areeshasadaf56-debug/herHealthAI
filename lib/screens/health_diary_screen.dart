@@ -7,6 +7,7 @@ import '../services/health_profile_service.dart';
 import '../providers/cycle_provider.dart';
 import '../widgets/app_animations.dart';
 import '../widgets/diary_entry_dialog.dart';
+import '../widgets/profile_sync_badge.dart';
 
 /// Unified entry type so PCOS results, contraception changes, AI
 /// conversation turns, written journal entries, and cycle logs (period
@@ -55,11 +56,27 @@ class HealthDiaryScreen extends StatefulWidget {
 
 class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
   static const _shortMonths = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   static const _weekdays = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
 
   final _service = HealthProfileService();
@@ -119,17 +136,18 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
       });
 
       final after = _service.profileUpdated.value;
-      final adopted =
-          after != null && !identical(before, after);
+      final adopted = after != null && !identical(before, after);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             adopted
                 ? tr('Diary updated from your account')
                 : _service.lastServerSyncReached
-                    ? tr("You're all caught up")
-                    : tr("Couldn't reach the server -- showing what's "
-                        'saved on this device'),
+                ? tr("You're all caught up")
+                : tr(
+                    "Couldn't reach the server -- showing what's "
+                    'saved on this device',
+                  ),
             style: const TextStyle(color: Colors.white),
           ),
           duration: const Duration(seconds: 2),
@@ -161,77 +179,88 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
 
     for (var i = 0; i < p.pcosHistory.length; i++) {
       final r = p.pcosHistory[i];
-      final positive = r.prediction.toLowerCase().contains('detected') &&
+      final positive =
+          r.prediction.toLowerCase().contains('detected') &&
           !r.prediction.toLowerCase().contains('no pcos');
-      entries.add(_TimelineEntry(
-        date: r.date,
-        kind: _EntryKind.pcos,
-        title: 'PCOS Check — ${r.prediction}',
-        subtitle:
-            'Likelihood: ${(r.pcosProbability * 100).clamp(0, 100).toStringAsFixed(1)}% · ${r.modelUsed}',
-        color: positive ? AppColors.periodRed : AppColors.ovulationTeal,
-        emoji: '🧪',
-        listIndex: i,
-      ));
+      entries.add(
+        _TimelineEntry(
+          date: r.date,
+          kind: _EntryKind.pcos,
+          title: 'PCOS Check — ${r.prediction}',
+          subtitle:
+              'Likelihood: ${(r.pcosProbability * 100).clamp(0, 100).toStringAsFixed(1)}% · ${r.modelUsed}',
+          color: positive ? AppColors.periodRed : AppColors.ovulationTeal,
+          emoji: '🧪',
+          listIndex: i,
+        ),
+      );
     }
 
     final contraceptionHistory = p.reproductiveHistory.contraceptionHistory;
     for (var i = 0; i < contraceptionHistory.length; i++) {
       final c = contraceptionHistory[i];
-      entries.add(_TimelineEntry(
-        date: c.date,
-        kind: _EntryKind.contraception,
-        title: 'Protection Method — ${c.method}',
-        subtitle: c.note ?? 'Method logged',
-        color: AppColors.primary,
-        emoji: '🛡️',
-        listIndex: i,
-      ));
+      entries.add(
+        _TimelineEntry(
+          date: c.date,
+          kind: _EntryKind.contraception,
+          title: 'Protection Method — ${c.method}',
+          subtitle: c.note ?? 'Method logged',
+          color: AppColors.primary,
+          emoji: '🛡️',
+          listIndex: i,
+        ),
+      );
     }
 
     for (var i = 0; i < p.eligibilityHistory.length; i++) {
       final ec = p.eligibilityHistory[i];
       final safeCount = ec.results.where((r) => r.category == 1).length;
-      entries.add(_TimelineEntry(
-        date: ec.date,
-        kind: _EntryKind.eligibility,
-        title: 'Eligibility Check — ${ec.conditions.length} condition(s)',
-        subtitle: ec.conditions.isEmpty
-            ? '$safeCount of ${ec.results.length} methods rated "safe to use"'
-            : '${ec.conditions.join(", ")} · $safeCount of ${ec.results.length} methods rated "safe to use"',
-        color: AppColors.moodYellow,
-        emoji: '📝',
-        listIndex: i,
-      ));
+      entries.add(
+        _TimelineEntry(
+          date: ec.date,
+          kind: _EntryKind.eligibility,
+          title: 'Eligibility Check — ${ec.conditions.length} condition(s)',
+          subtitle: ec.conditions.isEmpty
+              ? '$safeCount of ${ec.results.length} methods rated "safe to use"'
+              : '${ec.conditions.join(", ")} · $safeCount of ${ec.results.length} methods rated "safe to use"',
+          color: AppColors.moodYellow,
+          emoji: '📝',
+          listIndex: i,
+        ),
+      );
     }
 
     for (var i = 0; i < p.diaryEntries.length; i++) {
       final d = p.diaryEntries[i];
       final tags = d.symptomTags.isEmpty ? '' : d.symptomTags.join(', ');
-      entries.add(_TimelineEntry(
-        date: d.date,
-        kind: _EntryKind.diary,
-        title: d.mood != null && d.mood!.isNotEmpty
-            ? 'Journal Entry — ${d.mood}'
-            : 'Journal Entry',
-        subtitle: tags.isEmpty ? d.text : '$tags · ${d.text}',
-        color: AppColors.accent,
-        emoji: '📔',
-        listIndex: i,
-      ));
+      entries.add(
+        _TimelineEntry(
+          date: d.date,
+          kind: _EntryKind.diary,
+          title: d.mood != null && d.mood!.isNotEmpty
+              ? 'Journal Entry — ${d.mood}'
+              : 'Journal Entry',
+          subtitle: tags.isEmpty ? d.text : '$tags · ${d.text}',
+          color: AppColors.accent,
+          emoji: '📔',
+          listIndex: i,
+        ),
+      );
     }
 
     for (var i = 0; i < p.conversationLog.length; i++) {
       final e = p.conversationLog[i];
-      entries.add(_TimelineEntry(
-        date: e.timestamp,
-        kind: _EntryKind.conversation,
-        title: e.role == 'user' ? 'You said' : 'Saheli AI',
-        subtitle: e.message,
-        color: AppColors.accent,
-        emoji: e.role == 'user' ? '💬' : '🤖',
-        listIndex: i,
-      ));
+      entries.add(
+        _TimelineEntry(
+          date: e.timestamp,
+          kind: _EntryKind.conversation,
+          title: e.role == 'user' ? 'You said' : 'Saheli AI',
+          subtitle: e.message,
+          color: AppColors.accent,
+          emoji: e.role == 'user' ? '💬' : '🤖',
+          listIndex: i,
+        ),
+      );
     }
 
     // Cycle logs come from CycleProvider's dailyLogs map, keyed by date
@@ -249,42 +278,49 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
       final symptoms = (log.symptoms as List?)?.cast<String>() ?? const [];
 
       if (isPeriodDay || (flowIntensity != null && flowIntensity.isNotEmpty)) {
-        entries.add(_TimelineEntry(
-          date: date,
-          kind: _EntryKind.cycle,
-          title: 'Period Flow${flowIntensity != null ? ' — $flowIntensity' : ''}',
-          subtitle: isPeriodDay ? 'Logged as a period day' : 'Flow logged',
-          color: AppColors.periodRed,
-          emoji: '🩸',
-          dateKey: key,
-          cycleField: 'period',
-        ));
+        entries.add(
+          _TimelineEntry(
+            date: date,
+            kind: _EntryKind.cycle,
+            title:
+                'Period Flow${flowIntensity != null ? ' — $flowIntensity' : ''}',
+            subtitle: isPeriodDay ? 'Logged as a period day' : 'Flow logged',
+            color: AppColors.periodRed,
+            emoji: '🩸',
+            dateKey: key,
+            cycleField: 'period',
+          ),
+        );
       }
 
       if (mood != null && mood.isNotEmpty) {
-        entries.add(_TimelineEntry(
-          date: date,
-          kind: _EntryKind.cycle,
-          title: 'Mood — $mood',
-          subtitle: 'Logged from your cycle calendar',
-          color: AppColors.moodYellow,
-          emoji: '🙂',
-          dateKey: key,
-          cycleField: 'mood',
-        ));
+        entries.add(
+          _TimelineEntry(
+            date: date,
+            kind: _EntryKind.cycle,
+            title: 'Mood — $mood',
+            subtitle: 'Logged from your cycle calendar',
+            color: AppColors.moodYellow,
+            emoji: '🙂',
+            dateKey: key,
+            cycleField: 'mood',
+          ),
+        );
       }
 
       if (symptoms.isNotEmpty) {
-        entries.add(_TimelineEntry(
-          date: date,
-          kind: _EntryKind.cycle,
-          title: 'Symptoms logged',
-          subtitle: symptoms.join(', '),
-          color: AppColors.symptomOrange,
-          emoji: '📋',
-          dateKey: key,
-          cycleField: 'symptoms',
-        ));
+        entries.add(
+          _TimelineEntry(
+            date: date,
+            kind: _EntryKind.cycle,
+            title: 'Symptoms logged',
+            subtitle: symptoms.join(', '),
+            color: AppColors.symptomOrange,
+            emoji: '📋',
+            dateKey: key,
+            cycleField: 'symptoms',
+          ),
+        );
       }
     });
 
@@ -313,6 +349,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(context),
+                      const ProfileSyncBadge(),
                       const SizedBox(height: 20),
                       _buildStatsGrid(_profile!, cycle),
                       const SizedBox(height: 20),
@@ -476,10 +513,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
       ),
       child: Column(
         children: [
-          Text(
-            value,
-            style: AppTextStyles.serif(size: 22, color: color),
-          ),
+          Text(value, style: AppTextStyles.serif(size: 22, color: color)),
           const SizedBox(height: 4),
           Text(
             label,
@@ -517,7 +551,9 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
         height: 46,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isActive ? activeColor.withValues(alpha: 0.18) : AppColors.surface,
+          color: isActive
+              ? activeColor.withValues(alpha: 0.18)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isActive
@@ -594,9 +630,11 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
 
     final status = todaysCount == 0
         ? tr("Nothing written yet today")
-        : tr(todaysCount == 1
-            ? '1 story written today'
-            : '$todaysCount stories written today');
+        : tr(
+            todaysCount == 1
+                ? '1 story written today'
+                : '$todaysCount stories written today',
+          );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -615,7 +653,9 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
               color: AppColors.accent.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Center(child: Text('📖', style: TextStyle(fontSize: 18))),
+            child: const Center(
+              child: Text('📖', style: TextStyle(fontSize: 18)),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -680,13 +720,12 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
     final that = DateTime(d.year, d.month, d.day);
     final diff = today.difference(that).inDays;
 
-    final md =
-        '${_shortMonths[d.month - 1]} ${d.day}, ${d.year}';
+    final md = '${_shortMonths[d.month - 1]} ${d.day}, ${d.year}';
     final label = that == today
         ? md
         : diff == 1
-            ? '${tr('Yesterday')} · $md'
-            : '${_weekdays[d.weekday - 1]}, $md';
+        ? '${tr('Yesterday')} · $md'
+        : '${_weekdays[d.weekday - 1]}, $md';
 
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 8),
@@ -858,9 +897,9 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
 
     if (!mounted) return;
     if (updated != null) setState(() => _profile = updated);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Entry deleted')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: const Text('Entry deleted')));
   }
 
   Widget _emptyState() {
@@ -901,12 +940,18 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
     return [
       _profileSection('Demographics', '👤', AppColors.primary, [
         _kv('Age', p.demographics.ageYrs?.toString()),
-        _kv('Weight', p.demographics.weightKg != null
-            ? '${p.demographics.weightKg} kg'
-            : null),
-        _kv('Height', p.demographics.heightCm != null
-            ? '${p.demographics.heightCm} cm'
-            : null),
+        _kv(
+          'Weight',
+          p.demographics.weightKg != null
+              ? '${p.demographics.weightKg} kg'
+              : null,
+        ),
+        _kv(
+          'Height',
+          p.demographics.heightCm != null
+              ? '${p.demographics.heightCm} cm'
+              : null,
+        ),
         _kv('Marital Status', p.demographics.maritalStatus),
       ]),
       const SizedBox(height: 12),
@@ -915,24 +960,31 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
         _kv('Exercise Frequency', p.lifestyle.exerciseFrequency),
         _kv('Diet Quality', p.lifestyle.dietQuality),
         _kv('Frequent Fast Food', _yesNo(p.lifestyle.fastFoodFrequent)),
-        _kv('Avg Sleep', p.lifestyle.averageSleepHours != null
-            ? '${p.lifestyle.averageSleepHours} hrs'
-            : null),
+        _kv(
+          'Avg Sleep',
+          p.lifestyle.averageSleepHours != null
+              ? '${p.lifestyle.averageSleepHours} hrs'
+              : null,
+        ),
         _kv('Notes', p.lifestyle.notes),
       ]),
       const SizedBox(height: 12),
       _profileSection('Reproductive Health', '🩷', AppColors.periodRed, [
         _kv('Cycle Regularity', p.reproductiveHistory.cycleRegularity),
-        _kv('Cycle Length', p.reproductiveHistory.cycleLengthDays != null
-            ? '${p.reproductiveHistory.cycleLengthDays} days'
-            : null),
-        _kv('Current Method',
-            p.reproductiveHistory.currentContraceptionMethod),
+        _kv(
+          'Cycle Length',
+          p.reproductiveHistory.cycleLengthDays != null
+              ? '${p.reproductiveHistory.cycleLengthDays} days'
+              : null,
+        ),
+        _kv('Current Method', p.reproductiveHistory.currentContraceptionMethod),
       ]),
       const SizedBox(height: 12),
       _profileSection('Wellbeing (self-reported)', '💛', AppColors.moodYellow, [
-        _kv('Stress Level (1-5)',
-            p.mentalHealth.selfReportedStressLevel?.toString()),
+        _kv(
+          'Stress Level (1-5)',
+          p.mentalHealth.selfReportedStressLevel?.toString(),
+        ),
         _kv('Notes', p.mentalHealth.notes),
         _kv(
           'Last Check-in',
@@ -1025,8 +1077,18 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
 
   String _formatDate(DateTime d) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final hour = d.hour % 12 == 0 ? 12 : d.hour % 12;
     final ampm = d.hour >= 12 ? 'PM' : 'AM';

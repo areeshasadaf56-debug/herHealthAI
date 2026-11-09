@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'l10n/language_fab.dart';
 import 'l10n/language_provider.dart';
 import 'screens/splash_screen.dart';
+import 'services/health_profile_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/cycle_provider.dart';
 
@@ -26,8 +27,34 @@ class WellnessSaheliApp extends StatelessWidget {
   }
 }
 
-class _AppRoot extends StatelessWidget {
+class _AppRoot extends StatefulWidget {
   const _AppRoot();
+
+  @override
+  State<_AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // FR-79: a failed background profile push is retried on the next
+    // save, load, AND app resume.
+    if (state == AppLifecycleState.resumed) {
+      HealthProfileService().retryPendingSync();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

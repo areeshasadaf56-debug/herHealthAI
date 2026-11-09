@@ -5,11 +5,21 @@
 /// -- don't call the backend directly from individual screens, so we
 /// have a single place to add offline support, retry logic, etc. later.
 ///
+/// The service is a shared singleton (`factory HealthProfileService() =>
+/// instance`), so every screen constructing one with no args shares the
+/// same in-memory cache and the same update queue. Previously each
+/// screen kept its own copy and a long-lived instance (the AI tab,
+/// kept alive by the IndexedStack) could write a stale snapshot back,
+/// silently clobbering newer data.
+///
+/// Saves follow SRS FR-79: the local cache is written first, the UI is
+/// never blocked on the network, and the backend PUT runs in a
+/// background queue. Failures surface through [syncState] and are
+/// retried on the next save, load, and app resume.
+///
 /// Requires two packages in pubspec.yaml:
 ///   shared_preferences: ^2.2.0
 ///   http: ^1.1.0
-/// (You likely already have `http` from pcos_api_service.dart /
-/// eligibility_api_service.dart.)
 library;
 
 import 'dart:async';
@@ -22,12 +32,77 @@ import '../config/api_config.dart';
 import '../models/health_profile.dart';
 import 'auth_session.dart';
 
+/// How the most recent profile change relates to the backend.
+enum ProfileSyncState {
+  /// Everything the user has on this device is also on the server.
+  synced,
+
+  /// A change is saved locally and its upload is queued/in flight.
+  pending,
+
+  /// The last upload didn't reach the server; see [HealthProfileService.lastSyncError].
+  ///
+  /// Local data is NEVER dropped in this state -- it stays cached on
+  /// the device and a retry happens on the next save/load/app resume.
+  failed,
+}
+
 class HealthProfileService {
   static const _deviceIdKey = 'health_profile_device_id';
   static const _localProfileKeyPrefix = 'health_profile_cache_';
 
-  String? _cachedUserId;
+  static final _instance = HealthProfileService._();
+
+  /// Shared singleton: call sites construct the service unchanged
+  /// (`HealthProfileService()`) and get the one shared cache + queue.
+  factory HealthProfileService() => _instance;
+
+  HealthProfileService._();
+
+  static const int maxSyncPayloadBytes =
+      250 * 1024; // hard stop well under the SRS 300,000-byte cap
+
+  // ---- Test seam (overrideHttpClient) ------------------------------------
+  static http.Client? _testClient;
+
+  /// Swap the HTTP client behind every backend call, for unit tests
+  /// only (they must not touch the real network). Pass null to restore.
+  @visibleForTesting
+  static void overrideHttpClient(http.Client? client) {
+    _testClient?.close();
+    _testClient = client;
+  }
+
+  http.Client _newClient() {
+    final test = _testClient;
+    if (test != null) return test; // shared stub; the caller must not close it
+    return http.Client();
+  }
+
+  String? _cachedDeviceId;
   HealthProfile? _cachedProfile;
+
+  /// The identity the in-memory cache was populated for. When it
+  /// changes (sign-in to another account, log out, app resume) the
+  /// cache and any queued upload are discarded so one account's data
+  /// can never leak into another's.
+  String? _activeUserId;
+
+  HealthProfile? _nextPush;
+  bool _pushDraining = false;
+
+  /// Queues local profile mutations so concurrent callers can't race.
+  /// Every updateProfile/remove* call runs strictly one at a time, and
+  /// each reads the FRESH cached profile (never a stale snapshot).
+  Future<void> _queueTail = Future.value();
+
+  Future<T> _enqueue<T>(Future<T> Function() task) {
+    final result = _queueTail.then((_) => task());
+    // Keep the queue alive even when a task throws: the tail always
+    // completes successfully.
+    _queueTail = result.then<void>((_) {}, onError: (_) {});
+    return result;
+  }
 
   /// Returns the anonymous device id, generating and persisting one on
   /// first ever call. Used as a fallback identity for local-only usage
@@ -35,7 +110,7 @@ class HealthProfileService {
   /// the real account id instead so profile data actually reaches the
   /// backend under an identity the server will authorize.
   Future<String> getDeviceId() async {
-    if (_cachedUserId != null) return _cachedUserId!;
+    if (_cachedDeviceId != null) return _cachedDeviceId!;
 
     final prefs = await SharedPreferences.getInstance();
     var id = prefs.getString(_deviceIdKey);
@@ -43,7 +118,7 @@ class HealthProfileService {
       id = _generateId();
       await prefs.setString(_deviceIdKey, id);
     }
-    _cachedUserId = id;
+    _cachedDeviceId = id;
     return id;
   }
 
@@ -77,36 +152,47 @@ class HealthProfileService {
         '${hex.substring(16, 20)}-${hex.substring(20, 32)}';
   }
 
-  /// Fired whenever a server sync (background or explicit refresh)
-  /// adopts a newer profile than the one in the local cache. Open
-  /// screens listen and redraw -- previously the background sync
-  /// silently updated an in-memory cache no screen ever re-read, which
-  /// is why the Diary's refresh button looked completely dead.
+  /// Fired whenever the profile the screens should show changes -- on
+  /// every local save/update AND whenever a newer remote copy is
+  /// adopted. Open screens listen and redraw, so a privacy toggle made
+  /// in Data & Privacy reaches the AI tab (and new diary entries reach
+  /// Home) without restarting.
   final ValueNotifier<HealthProfile?> profileUpdated =
       ValueNotifier<HealthProfile?>(null);
+
+  /// Publishes [ProfileSyncState] for the small "saved / saving /
+  /// needs retry" indicator in the Health Diary.
+  final ValueNotifier<ProfileSyncState> syncState =
+      ValueNotifier<ProfileSyncState>(ProfileSyncState.synced);
+
+  /// Why the last upload failed, when [syncState] is `failed`. Purely
+  /// user-facing text (never raw error bodies) -- e.g. "no internet",
+  /// "too large", "sign in again".
+  String? lastSyncError;
 
   /// True when the most recent [loadProfile] call reached the backend
   /// successfully (only meaningful when forceServer is true).
   bool lastServerSyncReached = false;
 
+  /// Swaps the cached profile for [userId]'s if the effective identity
+  /// changed since we last served data: wipes the in-memory cache, any
+  /// queued upload from the previous account, and the sync state.
+  Future<void> _ensureUserContext(String userId) async {
+    if (_activeUserId == userId) return;
+    _activeUserId = userId;
+    _cachedProfile = null;
+    _nextPush = null;
+    lastSyncError = null;
+    syncState.value = ProfileSyncState.synced;
+  }
+
   /// Loads the profile: LOCAL CACHE FIRST, backend as a background sync.
   ///
-  /// This used to check the backend first and fall back to local cache
-  /// only on failure. That was backwards in practice: if the backend
-  /// ever had an older/emptier profile than what's on-device (e.g. a
-  /// previous saveProfile()'s background PUT silently failed due to a
-  /// network hiccup, CORS, or the endpoint not being fully live yet),
-  /// the *next* loadProfile() would happily fetch that stale backend
-  /// copy and overwrite fresh local writes -- so a PCOS result or
-  /// contraception choice saved seconds ago could vanish from the
-  /// Diary the moment you reopened it, even though it was safely
-  /// sitting in local storage the whole time.
-  ///
-  /// Now: local cache is returned immediately (it's authoritative for
-  /// "what did this device just do"), and a backend fetch happens in
-  /// the background purely to pick up data saved from a *different*
-  /// device -- and even then, it's only adopted if it's actually newer
-  /// than what's already local (compared via lastUpdated), so a stale
+  /// Local cache is returned immediately (it's authoritative for "what
+  /// did this device just do"), and a backend fetch happens in the
+  /// background purely to pick up data saved from a *different* device
+  /// -- and even then, it's only adopted if it's actually newer than
+  /// what's already local (compared via lastUpdated), so a stale
   /// backend record can never clobber a fresher local one.
   ///
   /// [forceServer] is for EXPLICIT user refresh actions (the Diary's
@@ -118,6 +204,13 @@ class HealthProfileService {
   /// visible.
   Future<HealthProfile> loadProfile({bool forceServer = false}) async {
     final userId = await _effectiveUserId();
+    await _ensureUserContext(userId);
+
+    // A pending failed sync retries right away whenever the app looks
+    // at profile data again (FR-79 backpressure point).
+    if (syncState.value == ProfileSyncState.failed) {
+      unawaited(retryPendingSync());
+    }
 
     final local = await _loadFromCache(userId);
 
@@ -174,10 +267,13 @@ class HealthProfileService {
   /// Goes to the backend for the current profile. Returns null on any
   /// failure (not signed in, server down, timeout, bad payload).
   Future<HealthProfile?> _fetchFromBackend(String userId) async {
+    http.Client? owned;
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/profile/$userId');
       final headers = await _authHeaders();
-      final response = await http
+      final client = _newClient();
+      owned = _testClient == null ? client : null;
+      final response = await client
           .get(uri, headers: headers)
           .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200) return null;
@@ -186,6 +282,8 @@ class HealthProfileService {
       return HealthProfile.fromJson(json);
     } catch (_) {
       return null;
+    } finally {
+      owned?.close();
     }
   }
 
@@ -210,29 +308,146 @@ class HealthProfileService {
   }
 
   /// Saves the profile: writes to local cache immediately (so the UI
-  /// never waits on the network), then pushes to the backend in the
-  /// background. If the backend call fails, the local cache still has
-  /// the update -- the next successful loadProfile()/saveProfile() call
-  /// will resync.
+  /// never waits on the network -- SRS FR-79), then queues the backend
+  /// push. If the push fails the local cache still has the update, and
+  /// a retry happens on the next save, load, or app resume.
   Future<void> saveProfile(HealthProfile profile) async {
+    await _ensureUserContext(profile.userId);
     _cachedProfile = profile;
     await _cacheLocally(profile.userId, profile);
+    // Announce immediately so open screens (AI tab, Home, Diary) redraw
+    // with the fresh data.
+    profileUpdated.value = profile;
+    _scheduleServerPush(profile);
+  }
 
+  /// Queues the profile for upload. Newest snapshot wins: only the most
+  /// recent full document is ever uploaded (the server keeps whole
+  /// documents), so an interrupted in-flight push simply makes way.
+  void _scheduleServerPush(HealthProfile profile) {
+    _nextPush = profile;
+    if (_pushDraining) return;
+    _pushDraining = true;
+    if (syncState.value == ProfileSyncState.failed) {
+      // A new save clears earlier failure text and gets a fresh chance.
+      lastSyncError = null;
+    }
+    if (syncState.value != ProfileSyncState.pending) {
+      syncState.value = ProfileSyncState.pending;
+    }
+    unawaited(_drainPushQueue());
+  }
+
+  /// Serialized (and newest-only) uploader. Never throws.
+  Future<void> _drainPushQueue() async {
+    try {
+      while (_nextPush != null) {
+        final profile = _nextPush!;
+        _nextPush = null;
+        try {
+          final payload = jsonEncode(profile.toJson());
+          final result = await _attemptPush(profile, payload: payload);
+          if (result.isOk) {
+            lastSyncError = null;
+            syncState.value = ProfileSyncState.synced;
+          } else {
+            lastSyncError = result.message;
+            syncState.value = ProfileSyncState.failed;
+          }
+        } on TimeoutException {
+          // The 8s put deadline passed -- keep local, retry later.
+          lastSyncError =
+              "Couldn't reach the server right now. Your changes are "
+              'saved on this device and will sync next time you open the app.';
+          syncState.value = ProfileSyncState.failed;
+        } catch (e) {
+          debugPrint('HealthProfileService push error: $e');
+          lastSyncError =
+              "Couldn't reach the server right now. Your changes are "
+              'saved on this device and will sync next time you open the app.';
+          syncState.value = ProfileSyncState.failed;
+        }
+      }
+    } finally {
+      _pushDraining = false;
+    }
+  }
+
+  Future<_PushResult> _attemptPush(
+    HealthProfile profile, {
+    required String payload,
+  }) async {
+    // Not signed in -- anonymous local-only usage. There's nobody to
+    // sync with and nothing wrong, so this stays quiet (matching how
+    // the app behaved before accounts existed).
+    await AuthSession.ensureLoaded();
+    if (!AuthSession.isValid) {
+      return _PushResult.ok();
+    }
+
+    // Whole-document limit check. Never silently trim data (SRS):
+    // an oversized document simply stays on the device and the sync
+    // state says so. See docs/OPEN_QUESTIONS.md (data archiving).
+    final payloadBytes = utf8.encode(payload);
+    if (payloadBytes.length > maxSyncPayloadBytes) {
+      debugPrint(
+        'HealthProfileService: sync payload too large '
+        '(${payloadBytes.length} bytes) -- not uploading, data kept locally.',
+      );
+      return _PushResult.fail(
+        'This device has saved more health data than the server can '
+        'store, so syncing is paused. Nothing was lost -- it is all on '
+        'this device.',
+      );
+    }
+
+    http.Client? owned;
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/profile/${profile.userId}');
-      final headers = {
-        'Content-Type': 'application/json',
-        ...await _authHeaders(),
-      };
-      await http
-          .put(uri, headers: headers, body: jsonEncode(profile.toJson()))
+      final client = _newClient();
+      owned = _testClient == null ? client : null;
+      final response = await client
+          .put(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              ...AuthSession.authHeaders,
+            },
+            body: payload,
+          )
           .timeout(const Duration(seconds: 8));
-    } catch (_) {
-      // Background sync failed silently -- local cache is still correct,
-      // and will be retried on the next saveProfile()/loadProfile() call.
-      // (If you want the user to see a "not synced" indicator, surface
-      // this instead of swallowing it.)
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return _PushResult.ok();
+      }
+      if (response.statusCode == 401) {
+        // The server no longer accepts this session. Clear it (same as
+        // the other services do on 401); the local data is safe and
+        // will sync again once the user signs back in.
+        await AuthSession.clear();
+        return _PushResult.fail(
+          'Your sign-in session expired, so syncing is paused. Your '
+          'changes are saved on this device -- sign in again to sync them.',
+        );
+      }
+      return _PushResult.fail(
+        'The server couldn’t accept the update right now (HTTP '
+        '${response.statusCode}). Your changes are saved on this device.',
+      );
+    } finally {
+      owned?.close();
     }
+  }
+
+  /// Willing retry hook for the next save, load, or app resume.
+  Future<void> retryPendingSync() async {
+    if (syncState.value != ProfileSyncState.failed) return;
+    final userId = await _effectiveUserId();
+    if (userId != _activeUserId) return; // identity changed; nothing retryable
+
+    final profile = _cachedProfile ?? await _loadFromCache(userId);
+    if (profile == null) return;
+    _scheduleServerPush(profile);
   }
 
   /// Convenience: apply a partial update without needing the caller to
@@ -240,13 +455,25 @@ class HealthProfileService {
   ///   await service.updateProfile((p) => p.copyWith(
   ///     lifestyle: p.lifestyle.copyWith(regularExercise: true),
   ///   ));
+  ///
+  /// Calls are serialized through the internal queue -- two call sites
+  /// updating concurrently always land on top of each other, and both
+  /// persist.
   Future<HealthProfile> updateProfile(
     HealthProfile Function(HealthProfile current) updater,
-  ) async {
-    final current = _cachedProfile ?? await loadProfile();
-    final updated = updater(current);
-    await saveProfile(updated);
-    return updated;
+  ) {
+    return _enqueue(() async {
+      // Identity first: if the session changed since the cache was
+      // populated (sign-in to another account, sign-out), the cache is
+      // discarded here so an update can never land on top of a
+      // previous account's snapshot.
+      final userId = await _effectiveUserId();
+      await _ensureUserContext(userId);
+      final current = _cachedProfile ?? await loadProfile();
+      final updated = updater(current);
+      await saveProfile(updated);
+      return updated;
+    });
   }
 
   /// Appends one turn to the AI conversation log and saves. Kept as a
@@ -321,9 +548,9 @@ class HealthProfileService {
   // Each takes the index of the entry within the SAME profile list the
   // timeline was built from (the diary screen builds entries with the
   // matching list index attached, then calls back in here). Splicing +
-  // saving keeps the deletion consistent across the timeline, the Profile
-  // tab stats, and the backend sync (saveProfile pushes the shorter
-  // lists server-side, so a background re-sync can't resurrect them).
+  // saving keeps the deletion consistent across the timeline, the
+  // Profile tab stats, and the server sync (the shorter list is pushed
+  // server-side, so a background re-sync can't resurrect them).
 
   /// Removes one saved PCOS check result from history.
   Future<HealthProfile> removePcosCheckAt(int index) {
@@ -398,8 +625,16 @@ class HealthProfileService {
     if (raw == null) return null;
     try {
       return HealthProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('HealthProfileService: cached profile failed to parse: $e');
       return null;
     }
   }
+}
+
+class _PushResult {
+  final bool isOk;
+  final String message;
+  const _PushResult.ok() : isOk = true, message = '';
+  const _PushResult.fail(this.message) : isOk = false;
 }
