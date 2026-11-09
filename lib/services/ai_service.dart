@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/ai_response.dart';
 import '../models/health_profile.dart';
-import '../services/secure_store.dart';
+import '../services/auth_session.dart';
 
 /// Thrown when there's no valid session to attach to a /chat request
 /// (not signed in, or the session expired/was revoked server-side).
@@ -69,21 +69,15 @@ class AiService {
     String language = 'en',
     ChatAttachment? attachment,
   }) async {
-    // Read from encrypted storage -- the same place CycleProvider and
-    // HealthProfileService write the session. (Reading SharedPreferences
-    // directly here used to miss the token after the secure-storage
-    // migration, so AI Check-in falsely reported "please sign in".)
-    final token = await SecureStore.read(SecureStore.tokenKey);
-    final expiresMillis = await SecureStore.readExpiryMillis();
-    final expired =
-        expiresMillis != null &&
-        DateTime.fromMillisecondsSinceEpoch(
-          expiresMillis,
-        ).isBefore(DateTime.now());
-    if (token == null || token.isEmpty) {
-      throw const AuthRequiredException();
-    }
-    if (expired) {
+    // The shared AuthSession accessor is the single source of truth for
+    // the signed-in session (loaded once from SecureStore, kept in sync
+    // by CycleProvider). No token or an expired one must both behave as
+    // "please sign in", never as "attach a dead header".
+    await AuthSession.ensureLoaded();
+    final token = AuthSession.token;
+    if (token == null) throw const AuthRequiredException();
+    if (!AuthSession.isValid) {
+      await AuthSession.clear();
       throw const AuthRequiredException(
         'Your session expired. Please sign in again.',
       );
@@ -125,6 +119,10 @@ class AiService {
     }
 
     if (response.statusCode == 401) {
+      // The session is no longer accepted server-side (revoked, expired
+      // server clock skew, etc.). Wipe it here too so the very next
+      // call fails fast with "please sign in" instead of another 401.
+      await AuthSession.clear();
       throw const AuthRequiredException(
         'Your session expired. Please sign in again.',
       );
@@ -148,7 +146,7 @@ class AiService {
         detail.isNotEmpty
             ? detail
             : 'The assistant is unavailable right now '
-                '(HTTP ${response.statusCode}). Please try again shortly.',
+                  '(HTTP ${response.statusCode}). Please try again shortly.',
       );
     }
 

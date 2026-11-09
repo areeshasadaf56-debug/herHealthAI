@@ -20,15 +20,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/health_profile.dart';
-import 'secure_store.dart';
+import 'auth_session.dart';
 
 class HealthProfileService {
   static const _deviceIdKey = 'health_profile_device_id';
   static const _localProfileKeyPrefix = 'health_profile_cache_';
-
-  // Written by CycleProvider on sign-in/out -- read directly here so
-  // every screen that already constructs `HealthProfileService()` picks
-  // up authenticated sync automatically, with no call-site changes.
 
   String? _cachedUserId;
   HealthProfile? _cachedProfile;
@@ -56,27 +52,19 @@ class HealthProfileService {
   /// `/profile/<id>` calls whose id doesn't match the authenticated
   /// token), falling back to the anonymous per-device id otherwise.
   Future<String> _effectiveUserId() async {
-    final accountId = await SecureStore.read(SecureStore.userIdKey);
+    await AuthSession.ensureLoaded();
+    final accountId = AuthSession.userId;
     if (accountId != null && accountId.isNotEmpty) return accountId;
     return getDeviceId();
   }
 
-  /// `Authorization: Bearer <token>` header when a still-valid session
-  /// exists, or an empty map when signed out / expired -- in which case
+  /// `Authorization: Bearer <token>` when AuthSession reports a usable
+  /// session, or an empty map when signed out / expired -- in which case
   /// backend calls will simply 401 and the existing try/catch fallbacks
   /// keep the UI on local-only data, same as being offline.
   Future<Map<String, String>> _authHeaders() async {
-    final token = await SecureStore.read(SecureStore.tokenKey);
-    if (token == null || token.isEmpty) return {};
-
-    final expiresMillis = await SecureStore.readExpiryMillis();
-    if (expiresMillis != null &&
-        DateTime.fromMillisecondsSinceEpoch(
-          expiresMillis,
-        ).isBefore(DateTime.now())) {
-      return {};
-    }
-    return {'Authorization': 'Bearer $token'};
+    await AuthSession.ensureLoaded();
+    return AuthSession.authHeaders;
   }
 
   String _generateId() {
@@ -137,7 +125,8 @@ class HealthProfileService {
       final remote = await _fetchFromBackend(userId);
       lastServerSyncReached = remote != null;
 
-      if (local == null || (remote?.lastUpdated.isAfter(local.lastUpdated) ?? false)) {
+      if (local == null ||
+          (remote?.lastUpdated.isAfter(local.lastUpdated) ?? false)) {
         final adopted = remote;
         if (adopted != null) {
           await _cacheLocally(userId, adopted);
@@ -358,8 +347,9 @@ class HealthProfileService {
       return p.copyWith(
         reproductiveHistory: p.reproductiveHistory.copyWith(
           contraceptionHistory: updated,
-          currentContraceptionMethod:
-              updated.isNotEmpty ? updated.last.method : null,
+          currentContraceptionMethod: updated.isNotEmpty
+              ? updated.last.method
+              : null,
         ),
       );
     });
@@ -369,9 +359,8 @@ class HealthProfileService {
   Future<HealthProfile> removeEligibilityCheckAt(int index) {
     return updateProfile((p) {
       if (index < 0 || index >= p.eligibilityHistory.length) return p;
-      final updated =
-          List<EligibilityCheckResult>.from(p.eligibilityHistory)
-            ..removeAt(index);
+      final updated = List<EligibilityCheckResult>.from(p.eligibilityHistory)
+        ..removeAt(index);
       return p.copyWith(eligibilityHistory: updated);
     });
   }
@@ -380,8 +369,8 @@ class HealthProfileService {
   Future<HealthProfile> removeConversationAt(int index) {
     return updateProfile((p) {
       if (index < 0 || index >= p.conversationLog.length) return p;
-      final updated =
-          List<ConversationEntry>.from(p.conversationLog)..removeAt(index);
+      final updated = List<ConversationEntry>.from(p.conversationLog)
+        ..removeAt(index);
       return p.copyWith(conversationLog: updated);
     });
   }

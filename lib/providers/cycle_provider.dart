@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/cycle_data.dart';
 import '../models/daily_log.dart';
 import '../config/api_config.dart';
-import '../services/secure_store.dart';
+import '../services/auth_session.dart';
 
 class CycleProvider extends ChangeNotifier {
   CycleData _cycleData = CycleData(
@@ -118,28 +118,17 @@ class CycleProvider extends ChangeNotifier {
     _remindersEnabled = prefs.getBool('remindersEnabled') ?? true;
 
     // Restore auth/profile state so a returning user skips sign-in.
-    // The token, user id, and expiry are secrets, so they live in
-    // SecureStore (Android Keystore / iOS Keychain), not plain
-    // SharedPreferences. SecureStore also migrates any legacy
-    // plain-text copies written by older app versions.
+    // Secrets live behind AuthSession -> SecureStore (Android Keystore /
+    // iOS Keychain), never plain SharedPreferences; SecureStore also
+    // migrates legacy plain-text copies on first read. An expired
+    // stored token is treated as signed out and wiped right there, so
+    // the app can't boot holding a dead session.
+    await AuthSession.ensureLoaded();
+    _userId = AuthSession.userId;
+    _authToken = AuthSession.token;
+    _tokenExpiresAt = AuthSession.expiresAt;
     _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     _userName = prefs.getString('userName') ?? '';
-    _userId = await SecureStore.read(SecureStore.userIdKey);
-    _authToken = await SecureStore.read(SecureStore.tokenKey);
-    final expiresMillis = await SecureStore.readExpiryMillis();
-    _tokenExpiresAt = expiresMillis != null
-        ? DateTime.fromMillisecondsSinceEpoch(expiresMillis)
-        : null;
-
-    // A token that has already expired is useless -- clear it so the
-    // rest of the app correctly treats this as "no session" rather than
-    // attaching a dead Authorization header to every request.
-    if (_authToken != null && !hasValidSession) {
-      _authToken = null;
-      _userId = null;
-      _tokenExpiresAt = null;
-      await SecureStore.clearSession();
-    }
 
     // "Logged in" must mean "has a usable session". Otherwise Splash
     // would route to Home while authenticated calls fail with 401.
@@ -174,21 +163,21 @@ class CycleProvider extends ChangeNotifier {
     if (userId != null) _userId = userId;
     if (token != null) _authToken = token;
     if (tokenExpiresAt != null) _tokenExpiresAt = tokenExpiresAt;
-    _emailNeedingVerification = null; // only ever set by a failed-at-verify sign-in
+    _emailNeedingVerification =
+        null; // only ever set by a failed-at-verify sign-in
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', true);
     await prefs.setString('userName', name);
-    // Secrets go to encrypted storage, never plain SharedPreferences.
-    if (userId != null) await SecureStore.write(SecureStore.userIdKey, userId);
-    if (token != null) await SecureStore.write(SecureStore.tokenKey, token);
-    if (tokenExpiresAt != null) {
-      await SecureStore.write(
-        SecureStore.expiresKey,
-        tokenExpiresAt.millisecondsSinceEpoch.toString(),
-      );
-    }
+    // Secrets go through the shared AuthSession accessor, which keeps
+    // its in-memory mirror AND the encrypted store (Android Keystore /
+    // iOS Keychain) in sync, never plain SharedPreferences.
+    await AuthSession.update(
+      userId: userId,
+      token: token,
+      expiresAt: tokenExpiresAt,
+    );
     // Drop any legacy plain-text copies left by older versions.
     await prefs.remove('authUserId');
     await prefs.remove('authToken');
@@ -320,8 +309,7 @@ class CycleProvider extends ChangeNotifier {
       }
       return (
         error: null,
-        devCode:
-            body['dev_code'] is String ? body['dev_code'] as String : null,
+        devCode: body['dev_code'] is String ? body['dev_code'] as String : null,
       );
     } catch (e) {
       debugPrint('requestVerificationCode error: $e');
@@ -425,7 +413,9 @@ class CycleProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', false);
-    await SecureStore.clearSession();
+    // Wipes AuthSession's memory mirror and the encrypted store (and any
+    // legacy plain-text copies) in one place.
+    await AuthSession.clear();
   }
 
   /// Call from the Settings logout button. Clears the flag so Splash
@@ -444,7 +434,9 @@ class CycleProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', false);
-    await SecureStore.clearSession();
+    // Single source of truth: AuthSession wipes its memory mirror AND
+    // the encrypted store (plus legacy plain-text copies).
+    await AuthSession.clear();
 
     if (tokenToInvalidate != null) {
       try {
@@ -592,7 +584,8 @@ class CycleProvider extends ChangeNotifier {
         break;
     }
 
-    final isEmptyLog = existing.isPeriodDay != true &&
+    final isEmptyLog =
+        existing.isPeriodDay != true &&
         (existing.flowIntensity == null || existing.flowIntensity!.isEmpty) &&
         (existing.mood == null || existing.mood!.isEmpty) &&
         existing.symptoms.isEmpty;
