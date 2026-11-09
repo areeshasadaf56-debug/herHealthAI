@@ -5,11 +5,13 @@ import '../theme/app_theme.dart';
 import '../models/health_profile.dart';
 import '../services/health_profile_service.dart';
 import '../providers/cycle_provider.dart';
+import '../widgets/app_animations.dart';
+import '../widgets/diary_entry_dialog.dart';
 
 /// Unified entry type so PCOS results, contraception changes, AI
-/// conversation turns, and cycle logs (period flow, mood, symptoms) can
-/// all live in one sorted timeline.
-enum _EntryKind { pcos, contraception, conversation, cycle, eligibility }
+/// conversation turns, written journal entries, and cycle logs (period
+/// flow, mood, symptoms) can all live in one sorted timeline.
+enum _EntryKind { pcos, contraception, conversation, cycle, eligibility, diary }
 
 class _TimelineEntry {
   final DateTime date;
@@ -19,13 +21,28 @@ class _TimelineEntry {
   final Color color;
   final String emoji;
 
-  _TimelineEntry({
+  /// What this tile maps back to, so the delete button can remove exactly
+  /// this entry (per-kind fields, see _confirmDeleteEntry):
+  ///   pcos            -> index into profile.pcosHistory
+  ///   contraception   -> index into reproductiveHistory.contraceptionHistory
+  ///   eligibility     -> index into profile.eligibilityHistory
+  ///   conversation    -> index into profile.conversationLog
+  ///   diary           -> index into profile.diaryEntries
+  ///   cycle           -> "_dailyLogs" date key + which field of that day
+  final int? listIndex;
+  final String? dateKey;
+  final String? cycleField; // 'period' | 'mood' | 'symptoms'
+
+  const _TimelineEntry({
     required this.date,
     required this.kind,
     required this.title,
     required this.subtitle,
     required this.color,
     required this.emoji,
+    this.listIndex,
+    this.dateKey,
+    this.cycleField,
   });
 }
 
@@ -37,15 +54,43 @@ class HealthDiaryScreen extends StatefulWidget {
 }
 
 class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
+  static const _shortMonths = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  static const _weekdays = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+  ];
+
   final _service = HealthProfileService();
   HealthProfile? _profile;
   bool _loading = true;
+  bool _refreshing = false;
   int _activeTab = 0; // 0 = Timeline, 1 = Profile Summary
 
   @override
   void initState() {
     super.initState();
     _load();
+    // A background sync can adopt a newer copy from the account at any
+    // moment (that's exactly what the old refresh button silently did
+    // and never showed). Listen and re-render when it does.
+    _service.profileUpdated.addListener(_onProfileSynced);
+  }
+
+  void _onProfileSynced() {
+    final updated = _service.profileUpdated.value;
+    if (updated == null || !mounted) return;
+    if (_profile == null ||
+        updated.lastUpdated.isAfter(_profile!.lastUpdated)) {
+      setState(() => _profile = updated);
+    }
+  }
+
+  @override
+  void dispose() {
+    _service.profileUpdated.removeListener(_onProfileSynced);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -56,6 +101,43 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
       _profile = profile;
       _loading = false;
     });
+  }
+
+  /// The refresh button / pull-to-refresh: explicitly awaits the server
+  /// (instead of the old read-local-cache-instantly behavior that made
+  /// it look dead), then says honestly what happened.
+  Future<void> _manualRefresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    final before = _service.profileUpdated.value;
+    try {
+      final profile = await _service.loadProfile(forceServer: true);
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _refreshing = false;
+      });
+
+      final after = _service.profileUpdated.value;
+      final adopted =
+          after != null && !identical(before, after);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            adopted
+                ? tr('Diary updated from your account')
+                : _service.lastServerSyncReached
+                    ? tr("You're all caught up")
+                    : tr("Couldn't reach the server -- showing what's "
+                        'saved on this device'),
+            style: const TextStyle(color: Colors.white),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   /// Parses the "yyyy-MM-dd" keys CycleProvider uses for _dailyLogs back
@@ -77,7 +159,8 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
   ) {
     final entries = <_TimelineEntry>[];
 
-    for (final r in p.pcosHistory) {
+    for (var i = 0; i < p.pcosHistory.length; i++) {
+      final r = p.pcosHistory[i];
       final positive = r.prediction.toLowerCase().contains('detected') &&
           !r.prediction.toLowerCase().contains('no pcos');
       entries.add(_TimelineEntry(
@@ -88,10 +171,13 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
             'Likelihood: ${(r.pcosProbability * 100).clamp(0, 100).toStringAsFixed(1)}% · ${r.modelUsed}',
         color: positive ? AppColors.periodRed : AppColors.ovulationTeal,
         emoji: '🧪',
+        listIndex: i,
       ));
     }
 
-    for (final c in p.reproductiveHistory.contraceptionHistory) {
+    final contraceptionHistory = p.reproductiveHistory.contraceptionHistory;
+    for (var i = 0; i < contraceptionHistory.length; i++) {
+      final c = contraceptionHistory[i];
       entries.add(_TimelineEntry(
         date: c.date,
         kind: _EntryKind.contraception,
@@ -99,10 +185,12 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
         subtitle: c.note ?? 'Method logged',
         color: AppColors.primary,
         emoji: '🛡️',
+        listIndex: i,
       ));
     }
 
-    for (final ec in p.eligibilityHistory) {
+    for (var i = 0; i < p.eligibilityHistory.length; i++) {
+      final ec = p.eligibilityHistory[i];
       final safeCount = ec.results.where((r) => r.category == 1).length;
       entries.add(_TimelineEntry(
         date: ec.date,
@@ -113,10 +201,28 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
             : '${ec.conditions.join(", ")} · $safeCount of ${ec.results.length} methods rated "safe to use"',
         color: AppColors.moodYellow,
         emoji: '📝',
+        listIndex: i,
       ));
     }
 
-    for (final e in p.conversationLog) {
+    for (var i = 0; i < p.diaryEntries.length; i++) {
+      final d = p.diaryEntries[i];
+      final tags = d.symptomTags.isEmpty ? '' : d.symptomTags.join(', ');
+      entries.add(_TimelineEntry(
+        date: d.date,
+        kind: _EntryKind.diary,
+        title: d.mood != null && d.mood!.isNotEmpty
+            ? 'Journal Entry — ${d.mood}'
+            : 'Journal Entry',
+        subtitle: tags.isEmpty ? d.text : '$tags · ${d.text}',
+        color: AppColors.accent,
+        emoji: '📔',
+        listIndex: i,
+      ));
+    }
+
+    for (var i = 0; i < p.conversationLog.length; i++) {
+      final e = p.conversationLog[i];
       entries.add(_TimelineEntry(
         date: e.timestamp,
         kind: _EntryKind.conversation,
@@ -124,6 +230,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
         subtitle: e.message,
         color: AppColors.accent,
         emoji: e.role == 'user' ? '💬' : '🤖',
+        listIndex: i,
       ));
     }
 
@@ -149,6 +256,8 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
           subtitle: isPeriodDay ? 'Logged as a period day' : 'Flow logged',
           color: AppColors.periodRed,
           emoji: '🩸',
+          dateKey: key,
+          cycleField: 'period',
         ));
       }
 
@@ -160,6 +269,8 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
           subtitle: 'Logged from your cycle calendar',
           color: AppColors.moodYellow,
           emoji: '🙂',
+          dateKey: key,
+          cycleField: 'mood',
         ));
       }
 
@@ -171,6 +282,8 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
           subtitle: symptoms.join(', '),
           color: AppColors.symptomOrange,
           emoji: '📋',
+          dateKey: key,
+          cycleField: 'symptoms',
         ));
       }
     });
@@ -189,7 +302,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-                onRefresh: _load,
+                onRefresh: _manualRefresh,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(
@@ -205,10 +318,18 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
                       const SizedBox(height: 20),
                       _buildTabs(),
                       const SizedBox(height: 16),
-                      if (_activeTab == 0)
-                        ..._buildTimelineTab(_profile!, cycle)
-                      else
-                        ..._buildProfileTab(_profile!),
+                      AppSwitcher(
+                        tabKey: _activeTab,
+                        child: _activeTab == 0
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: _buildTimelineTab(_profile!, cycle),
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: _buildProfileTab(_profile!),
+                              ),
+                      ),
                       const SizedBox(height: 16),
                     ],
                   ),
@@ -260,11 +381,23 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
           ],
         ),
         GestureDetector(
-          onTap: _load,
-          child: const Icon(
-            Icons.refresh,
-            size: 20,
-            color: AppColors.textSecondary,
+          // Spins while the account is actually being re-checked, so the
+          // button visibly reacts even when data hasn't changed.
+          onTap: _manualRefresh,
+          child: Container(
+            // Keep clear of the fixed language pill pinned top-right.
+            margin: const EdgeInsets.only(right: 96),
+            child: _refreshing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(
+                    Icons.refresh,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
           ),
         ),
       ],
@@ -339,7 +472,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -378,15 +511,17 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
     final isActive = _activeTab == index;
     return GestureDetector(
       onTap: () => setState(() => _activeTab = index),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
         height: 46,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isActive ? activeColor.withOpacity(0.18) : AppColors.surface,
+          color: isActive ? activeColor.withValues(alpha: 0.18) : AppColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isActive
-                ? activeColor.withOpacity(0.6)
+                ? activeColor.withValues(alpha: 0.6)
                 : AppColors.cardBorder,
           ),
         ),
@@ -417,36 +552,176 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
     final entries = _buildTimeline(p, cycle.dailyLogs);
 
     if (entries.isEmpty) {
-      return [_emptyState()];
+      return [_todayDiaryCard(p), _emptyState()];
     }
 
-    // Group by month for readability.
+    // Write today's entry front and center -- a real diary starts with
+    // the page you're ON, not your statistics.
+    final widgets = <Widget>[_todayDiaryCard(p)];
+
+    // Group by DAY (like a proper diary with per-day pages), newest
+    // first. Each group gets a friendly header: Today / Yesterday /
+    // weekday, so the history reads like dated pages.
     final grouped = <String, List<_TimelineEntry>>{};
+    final dayOrder = <DateTime>[];
     for (final e in entries) {
-      final key = _monthYearLabel(e.date);
+      final key = '${e.date.year}-${e.date.month}-${e.date.day}';
+      if (!grouped.containsKey(key)) dayOrder.add(e.date);
       grouped.putIfAbsent(key, () => []).add(e);
     }
 
-    final widgets = <Widget>[];
-    grouped.forEach((month, items) {
-      widgets.add(Padding(
-        padding: const EdgeInsets.only(bottom: 8, top: 4),
-        child: Text(
-          month.toUpperCase(),
-          style: AppTextStyles.sans(
-            size: 11,
-            weight: FontWeight.w600,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ));
+    for (final date in dayOrder) {
+      final items = grouped['${date.year}-${date.month}-${date.day}']!;
+      widgets.add(_dayHeader(date));
       for (final item in items) {
         widgets.add(_timelineTile(item));
       }
-      widgets.add(const SizedBox(height: 8));
-    });
+      widgets.add(const SizedBox(height: 10));
+    }
 
     return widgets;
+  }
+
+  /// Quick access to writing today's story: shows what's already on
+  /// today's page and opens the (existing) diary entry dialog.
+  Widget _todayDiaryCard(HealthProfile p) {
+    final now = DateTime.now();
+    final todaysCount = p.diaryEntries.where((e) {
+      return e.date.year == now.year &&
+          e.date.month == now.month &&
+          e.date.day == now.day;
+    }).length;
+
+    final status = todaysCount == 0
+        ? tr("Nothing written yet today")
+        : tr(todaysCount == 1
+            ? '1 story written today'
+            : '$todaysCount stories written today');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(child: Text('📖', style: TextStyle(fontSize: 18))),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr("Today's Diary"),
+                  style: AppTextStyles.serif(
+                    size: 16,
+                    weight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  status,
+                  style: AppTextStyles.sans(
+                    size: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => showDiaryEntryDialog(context, onSaved: _load),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('✍️', style: TextStyle(fontSize: 13)),
+                  const SizedBox(width: 5),
+                  Text(
+                    tr('Write'),
+                    style: AppTextStyles.sans(
+                      size: 12.5,
+                      weight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dayHeader(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final that = DateTime(d.year, d.month, d.day);
+    final diff = today.difference(that).inDays;
+
+    final md =
+        '${_shortMonths[d.month - 1]} ${d.day}, ${d.year}';
+    final label = that == today
+        ? md
+        : diff == 1
+            ? '${tr('Yesterday')} · $md'
+            : '${_weekdays[d.weekday - 1]}, $md';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Row(
+        children: [
+          if (that == today)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              margin: const EdgeInsetsDirectional.only(end: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                tr('Today'),
+                style: AppTextStyles.sans(
+                  size: 10,
+                  weight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.sans(
+                size: 12.5,
+                weight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _timelineTile(_TimelineEntry e) {
@@ -456,7 +731,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: e.color.withOpacity(0.3)),
+        border: Border.all(color: e.color.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,7 +740,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: e.color.withOpacity(0.18),
+              color: e.color.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
@@ -490,18 +765,101 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
                   ).copyWith(height: 1.4),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  _formatDate(e.date),
-                  style: AppTextStyles.sans(
-                    size: 10,
-                    color: AppColors.textSecondary,
+                // The day header above the tile already carries the
+                // date; show only the time of day when it's known.
+                if (!(e.date.hour == 0 && e.date.minute == 0))
+                  Text(
+                    '${e.date.hour % 12 == 0 ? 12 : e.date.hour % 12}:${e.date.minute.toString().padLeft(2, '0')} ${e.date.hour >= 12 ? 'pm' : 'am'}',
+                    style: AppTextStyles.sans(
+                      size: 10,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
               ],
+            ),
+          ),
+          // Per-entry delete: removes exactly THIS row from your records
+          // (keeps the timeline self-managing -- a typo'd AI turn, an old
+          // check, or a mistyped mood can be cleaned out on the spot).
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Delete this entry',
+            onPressed: () => _confirmAndDeleteEntry(e),
+            icon: const Icon(Icons.delete_outline),
+            color: AppColors.textSecondary,
+            iconSize: 18,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAndDeleteEntry(_TimelineEntry e) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Delete this entry?',
+          style: AppTextStyles.sans(size: 16, weight: FontWeight.w600),
+        ),
+        content: Text(
+          '"${e.title}" will be permanently removed from your diary. '
+          "This can't be undone.",
+          style: AppTextStyles.sans(
+            size: 13,
+            color: AppColors.textSecondary,
+          ).copyWith(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: AppColors.danger,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
       ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    HealthProfile? updated;
+    switch (e.kind) {
+      case _EntryKind.pcos:
+        updated = await _service.removePcosCheckAt(e.listIndex ?? -1);
+        break;
+      case _EntryKind.contraception:
+        updated = await _service.removeContraceptionAt(e.listIndex ?? -1);
+        break;
+      case _EntryKind.eligibility:
+        updated = await _service.removeEligibilityCheckAt(e.listIndex ?? -1);
+        break;
+      case _EntryKind.diary:
+        updated = await _service.removeDiaryEntryAt(e.listIndex ?? -1);
+        break;
+      case _EntryKind.conversation:
+        updated = await _service.removeConversationAt(e.listIndex ?? -1);
+        break;
+      case _EntryKind.cycle:
+        final date = _parseDateKey(e.dateKey!);
+        if (date != null) {
+          context.read<CycleProvider>().clearCycleField(date, e.cycleField!);
+        }
+        break;
+    }
+
+    if (!mounted) return;
+    if (updated != null) setState(() => _profile = updated);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: const Text('Entry deleted')),
     );
   }
 
@@ -523,8 +881,9 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'PCOS checks, protection method changes, cycle logs, and AI '
-            'check-ins will show up here automatically as you use the app.',
+            'Journal entries, PCOS checks, protection method changes, cycle '
+            'logs, and AI check-ins will show up here automatically as you '
+            'use the app. Every entry can be deleted from its row.',
             textAlign: TextAlign.center,
             style: AppTextStyles.sans(
               size: 12,
@@ -603,7 +962,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -662,14 +1021,6 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
   String? _yesNo(bool? v) {
     if (v == null) return null;
     return v ? 'Yes' : 'No';
-  }
-
-  String _monthYearLabel(DateTime d) {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
-    ];
-    return '${months[d.month - 1]} ${d.year}';
   }
 
   String _formatDate(DateTime d) {

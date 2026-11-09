@@ -20,8 +20,29 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell>
+    with SingleTickerProviderStateMixin {
   int _tabIndex = 0;
+
+  // Replays a short fade+lift every time the active tab changes, so the
+  // state-preserving IndexedStack (which can't cross-fade by itself)
+  // still feels animated instead of cutting instantly.
+  late final AnimationController _switchController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    value: 1.0, // fully "settled" on first build so the app opens visible
+  );
+
+  late final Animation<double> _switchAnimation = CurvedAnimation(
+    parent: _switchController,
+    curve: Curves.easeOutCubic,
+  );
+
+  void _changeTab(int index) {
+    if (index == _tabIndex) return;
+    setState(() => _tabIndex = index);
+    _switchController.forward(from: 0);
+  }
 
   /// Navigate to a specific tab by name or index
   void _navigateToTab(String tabName) {
@@ -37,7 +58,7 @@ class _HomeShellState extends State<HomeShell> {
     };
 
     final newIndex = tabMap[tabName] ?? 0;
-    setState(() => _tabIndex = newIndex);
+    _changeTab(newIndex);
   }
 
   final List<_NavItem> _navItems = [
@@ -100,7 +121,17 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: IndexedStack(index: _tabIndex, children: tabs),
+        child: FadeTransition(
+          opacity: Tween<double>(begin: 0.55, end: 1.0)
+              .animate(_switchAnimation),
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.012),
+              end: Offset.zero,
+            ).animate(_switchAnimation),
+            child: IndexedStack(index: _tabIndex, children: tabs),
+          ),
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -116,39 +147,57 @@ class _HomeShellState extends State<HomeShell> {
               final active = _tabIndex == i;
               return Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _tabIndex = i),
+                  onTap: () => _changeTab(i),
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 2,
+                      horizontal: 3,
                       vertical: 6,
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          item.icon,
-                          size: 18,
-                          color: active
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          item.shortLabel,
-                          style: AppTextStyles.sans(
-                            size: 7.5,
-                            weight: active ? FontWeight.w600 : FontWeight.w500,
-                            color: active
-                                ? AppColors.primary
-                                : AppColors.textSecondary,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      decoration: BoxDecoration(
+                        color: active
+                            ? AppColors.primary.withValues(alpha: 0.10)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AnimatedScale(
+                            scale: active ? 1.12 : 1.0,
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOut,
+                            child: Icon(
+                              item.icon,
+                              size: 18,
+                              color: active
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                          const SizedBox(height: 3),
+                          Text(
+                            item.shortLabel,
+                            style: AppTextStyles.sans(
+                              size: 7.5,
+                              weight: active
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: active
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

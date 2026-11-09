@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/pcos_api_service.dart';
 import '../services/health_profile_service.dart';
+import '../widgets/app_animations.dart';
+import '../widgets/pcos_comfort.dart'; // COMFORT_UI
 
 /// A single bullet/paragraph line inside a card body.
 /// If [boldLead] is set, it's rendered bold and inline before [text].
@@ -170,9 +172,21 @@ class _PcosScreenState extends State<PcosScreen> {
             _buildTabs(),
             const SizedBox(height: 20),
             if (_activeTab == 0)
-              ..._buildInformationTab()
+              AppSwitcher(
+                tabKey: _activeTab,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _buildInformationTab(),
+                ),
+              )
             else
-              ..._buildDetectionTab(),
+              AppSwitcher(
+                tabKey: _activeTab,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _buildDetectionTab(),
+                ),
+              ),
             const SizedBox(height: 16),
           ],
         ),
@@ -230,7 +244,9 @@ class _PcosScreenState extends State<PcosScreen> {
     final isActive = _activeTab == index;
     return GestureDetector(
       onTap: () => setState(() => _activeTab = index),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
         height: 46,
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -521,6 +537,8 @@ class _PcosScreenState extends State<PcosScreen> {
 
   List<Widget> _buildDetectionTab() {
     return [
+      const PcosComfortBanner(),
+      const SizedBox(height: 16),
       _detectionHeroCard(),
       const SizedBox(height: 16),
       if (_prefilled) _prefillBanner(),
@@ -669,11 +687,42 @@ class _PcosScreenState extends State<PcosScreen> {
             if (_result != null) ...[
               const SizedBox(height: 20),
               _resultCard(_result!),
+              const SizedBox(height: 16),
+              const PcosAfterResultCard(),
             ],
+
+            const SizedBox(height: 24),
+            DoctorVisitNotesCard(readData: _visitData),
           ],
         ),
       ),
     ];
+  }
+
+  PcosVisitData _visitData() {
+    final symptoms = <String>[
+      if (_weightGain) 'weight gain',
+      if (_hairGrowth) 'excess hair growth',
+      if (_skinDarkening) 'skin darkening',
+      if (_hairLoss) 'hair loss',
+      if (_pimples) 'pimples / acne',
+    ];
+    String? summary;
+    if (_result != null) {
+      final pct = (_result!.pcosProbability * 100).clamp(0, 100).toStringAsFixed(0);
+      summary = '${_result!.prediction} (estimated likelihood $pct%)';
+    }
+    return PcosVisitData(
+      age: int.tryParse(_ageController.text.trim()),
+      weightKg: double.tryParse(_weightController.text.trim()),
+      heightCm: double.tryParse(_heightController.text.trim()),
+      cycleRegularity: _cycleRegularity,
+      cycleLengthDays: int.tryParse(_cycleLengthController.text.trim()),
+      symptoms: symptoms,
+      fastFood: _fastFood,
+      regularExercise: _regularExercise,
+      screeningSummary: summary,
+    );
   }
 
   Widget _detectionHeroCard() {
@@ -926,7 +975,7 @@ class _PcosScreenState extends State<PcosScreen> {
     final isPositive =
         result.prediction.toLowerCase().contains('detected') &&
         !result.prediction.toLowerCase().contains('no pcos');
-    final color = isPositive ? AppColors.periodRed : AppColors.ovulationTeal;
+    final color = isPositive ? AppColors.accent : AppColors.ovulationTeal;
 
     return Container(
       padding: const EdgeInsets.all(18),

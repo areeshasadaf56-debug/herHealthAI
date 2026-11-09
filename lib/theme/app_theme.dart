@@ -109,6 +109,19 @@ ThemeData buildAppTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.background,
     primaryColor: AppColors.primary,
+    // Smooth, platform-independent page transitions for EVERY
+    // Navigator.push in the app (slide-with-parallax, like iOS) instead
+    // of an instant cut / platform-default jump.
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+      },
+    ),
   );
 
   final body = GoogleFonts.nunitoTextTheme(base.textTheme).apply(
