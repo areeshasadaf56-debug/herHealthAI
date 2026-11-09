@@ -145,7 +145,7 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 8),
               _buildTextField(
                 controller: _emailController,
-                hint: 'you@example.com',
+                hint: 'Email address',
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 18),

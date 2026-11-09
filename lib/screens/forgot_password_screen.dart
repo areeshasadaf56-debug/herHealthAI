@@ -81,9 +81,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     // Same generic result whether or not the email is registered -- no
     // account enumeration from this screen. If nothing arrives, the user
     // checks their inbox/spam and can resend after the cooldown.
-    final result = await context
-        .read<CycleProvider>()
-        .requestVerificationCode(email: email, purpose: 'reset');
+    final result = await context.read<CycleProvider>().requestVerificationCode(
+      email: email,
+      purpose: 'reset',
+    );
 
     if (!mounted) return;
 
@@ -123,10 +124,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
 
     final error = await context.read<CycleProvider>().resetPassword(
-          email: _emailController.text.trim(),
-          code: code,
-          newPassword: newPassword,
-        );
+      email: _emailController.text.trim(),
+      code: code,
+      newPassword: newPassword,
+    );
 
     if (!mounted) return;
 
@@ -180,10 +181,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 _isDone
                     ? 'Your password has been updated.'
                     : _step == 0
-                        ? "We'll email you a 6-digit code to prove this is "
-                            'your account. Then you choose the new password.'
-                        : 'Enter the code we sent to $emailText and choose a '
-                            'new password.',
+                    ? "We'll email you a 6-digit code to prove this is "
+                          'your account. Then you choose the new password.'
+                    : 'Enter the code we sent to $emailText and choose a '
+                          'new password.',
                 style: AppTextStyles.sans(
                   size: 13,
                   color: AppColors.textSecondary,
@@ -221,7 +222,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 const SizedBox(height: 8),
                 _buildTextField(
                   controller: _emailController,
-                  hint: 'you@example.com',
+                  hint: 'Email address',
                   keyboardType: TextInputType.emailAddress,
                 ),
                 if (_errorText != null) ...[
@@ -343,7 +344,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _submitButton({required String label, required VoidCallback onPressed}) {
+  Widget _submitButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
