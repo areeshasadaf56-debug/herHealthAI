@@ -279,7 +279,19 @@ class HealthProfileService {
       if (response.statusCode != 200) return null;
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return HealthProfile.fromJson(json);
+      final fetched = HealthProfile.fromJson(json);
+      // Integrity guard: a 200 whose user_id doesn't match the id we
+      // asked for is either a server bug or mixed-up routing. Adopting
+      // it would graft one account's data onto another identity, so it
+      // is treated as "nothing usable on the server" instead.
+      if (fetched.userId != userId) {
+        debugPrint(
+          'HealthProfileService: ignoring profile payload for wrong '
+          'user id (${fetched.userId} != $userId).',
+        );
+        return null;
+      }
+      return fetched;
     } catch (_) {
       return null;
     } finally {
@@ -639,7 +651,20 @@ class HealthProfileService {
     final raw = prefs.getString('$_localProfileKeyPrefix$userId');
     if (raw == null) return null;
     try {
-      return HealthProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final cached = HealthProfile.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      // Same integrity rule as backend fetches: a cache entry whose
+      // stored user_id disagrees with the key it lives under is corrupt
+      // (half-written upgrade, manual tampering) -- not served.
+      if (cached.userId != userId) {
+        debugPrint(
+          'HealthProfileService: discarding cache entry with mismatched '
+          'user id (${cached.userId} != $userId).',
+        );
+        return null;
+      }
+      return cached;
     } catch (e) {
       debugPrint('HealthProfileService: cached profile failed to parse: $e');
       return null;

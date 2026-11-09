@@ -42,13 +42,19 @@ class _SlowPutClient extends http.BaseClient {
 }
 
 /// Records PUT attempts — proves the oversized payload never uploaded.
+/// GETs answer 404: this suite only cares about pushes, and a lying
+/// empty `{}` GET would now (post-tolerant-parsing) decode into a
+/// userId-less profile instead of failing loudly as it used to.
 class _CountingClient extends http.BaseClient {
   int putCount = 0;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     if (request is http.Request && request.method == 'PUT') putCount++;
-    return http.StreamedResponse(Stream.value(utf8.encode('{}')), 200);
+    return http.StreamedResponse(
+      Stream.value(utf8.encode('{}')),
+      request is http.Request && request.method == 'PUT' ? 200 : 404,
+    );
   }
 }
 

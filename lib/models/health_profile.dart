@@ -23,6 +23,111 @@
 /// widgets/wellness_check_in_dialog.dart, widgets/diary_entry_dialog.dart.
 library;
 
+import 'package:flutter/foundation.dart';
+
+// ---------------------------------------------------------------------------
+// Tolerant parsing helpers (review task 1.6).
+//
+// fromJson used to trust every field's declared type, so one oddly-typed
+// value from the backend or an old cached copy (an int user_id, a
+// stringified number "26", a bool as 1/0, a malformed date) threw a
+// cast/format exception and made the ENTIRE stored profile unparseable
+// -- the app then fell back to an empty profile and looked like every
+// bit of history just vanished. These helpers coerce the common
+// envelopes instead of throwing; truly absurd values become null (or
+// the documented default) and never take the whole document down.
+// ---------------------------------------------------------------------------
+
+/// Sentinel for the copyWith methods below: "leave this field alone"
+/// (the implicit default -- a plain omitted argument). Any OTHER value
+/// replaces the field, with null meaning CLEAR it -- the old copyWith
+/// treated null and omitted identically, which made fields impossible
+/// to reset once set.
+const Object _unset = Object();
+
+int? _asInt(Object? v, {int? min, int? max}) {
+  int? value;
+  if (v is int) {
+    value = v;
+  } else if (v is num) {
+    value = v.toInt();
+  } else if (v is bool) {
+    value = v ? 1 : 0;
+  } else if (v is String) {
+    value = int.tryParse(v.trim());
+  }
+  if (value == null) return null;
+  if (min != null && value < min) value = min;
+  if (max != null && value > max) value = max;
+  return value;
+}
+
+double? _asDouble(Object? v) {
+  if (v is num) return v.toDouble();
+  if (v is String) {
+    return double.tryParse(v.trim().replaceAll(',', '.'));
+  }
+  return null;
+}
+
+bool? _asBool(Object? v) {
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  if (v is String) {
+    final t = v.trim().toLowerCase();
+    if (t == 'true' || t == 'yes' || t == '1') return true;
+    if (t == 'false' || t == 'no' || t == '0') return false;
+  }
+  return null;
+}
+
+String? _asString(Object? v) {
+  if (v is String) return v;
+  if (v is num || v is bool) return v.toString();
+  return null;
+}
+
+DateTime? _asDateTime(Object? v) {
+  if (v is DateTime) return v;
+  if (v is String && v.trim().isNotEmpty) return DateTime.tryParse(v.trim());
+  // Some writers store epoch millis.
+  if (v is num) return DateTime.fromMillisecondsSinceEpoch(v.toInt());
+  return null;
+}
+
+List<String> _stringList(Object? v) {
+  if (v is List) return v.whereType<String>().toList();
+  return const [];
+}
+
+Map<String, dynamic> _asMap(Object? v) =>
+    v is Map<String, dynamic> ? v : const {};
+
+/// Turns a JSON list of objects into typed model entries, skipping
+/// (with a debug note) anything that isn't a map or that an
+/// all-tolerant fromJson still can't digest -- one bad row used to
+/// poison the whole profile.
+List<T> _mapList<T>(Object? v, T Function(Map<String, dynamic>) decode) {
+  if (v is! List) return const [];
+  final out = <T>[];
+  for (final entry in v) {
+    final map = _asMap(entry);
+    if (map.isEmpty) continue;
+    try {
+      out.add(decode(map));
+    } catch (e) {
+      debugPrint('health_profile: skipping undecodable list entry: $e');
+    }
+  }
+  return out;
+}
+
+/// Self-reported stress is a 1..5 scale wherever it's edited; older
+/// copies of the app or a loose AI value could be 0..10 or a string --
+/// coerce and clamp here so nothing outside the documented range is
+/// ever stored/shown.
+int? _asStress(Object? v) => _asInt(v, min: 1, max: 5);
+
 class HealthProfile {
   final String userId;
 
@@ -120,40 +225,31 @@ class HealthProfile {
   };
 
   factory HealthProfile.fromJson(Map<String, dynamic> json) {
+    // Int-tolerant everywhere: the backend may hand back numbers where
+    // the model expects strings (user_id especially), and the nested
+    // decoders below each guard their own fields.
     return HealthProfile(
-      userId: json['user_id'] as String,
-      demographics: Demographics.fromJson(
-        json['demographics'] as Map<String, dynamic>? ?? {},
-      ),
-      lifestyle: Lifestyle.fromJson(
-        json['lifestyle'] as Map<String, dynamic>? ?? {},
-      ),
+      userId: _asString(json['user_id']) ?? '',
+      demographics: Demographics.fromJson(_asMap(json['demographics'])),
+      lifestyle: Lifestyle.fromJson(_asMap(json['lifestyle'])),
       reproductiveHistory: ReproductiveHistory.fromJson(
-        json['reproductive_history'] as Map<String, dynamic>? ?? {},
+        _asMap(json['reproductive_history']),
       ),
-      pcosHistory: (json['pcos_history'] as List<dynamic>? ?? [])
-          .map((e) => PcosCheckResult.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      eligibilityHistory: (json['eligibility_history'] as List<dynamic>? ?? [])
-          .map(
-            (e) => EligibilityCheckResult.fromJson(e as Map<String, dynamic>),
-          )
-          .toList(),
-      mentalHealth: MentalHealthFlags.fromJson(
-        json['mental_health'] as Map<String, dynamic>? ?? {},
+      pcosHistory: _mapList(json['pcos_history'], PcosCheckResult.fromJson),
+      eligibilityHistory: _mapList(
+        json['eligibility_history'],
+        EligibilityCheckResult.fromJson,
       ),
-      conversationLog: (json['conversation_log'] as List<dynamic>? ?? [])
-          .map((e) => ConversationEntry.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      mentalHealth: MentalHealthFlags.fromJson(_asMap(json['mental_health'])),
+      conversationLog: _mapList(
+        json['conversation_log'],
+        ConversationEntry.fromJson,
+      ),
       privacySettings: PrivacySettings.fromJson(
-        json['privacy_settings'] as Map<String, dynamic>? ?? {},
+        _asMap(json['privacy_settings']),
       ),
-      diaryEntries: (json['diary_entries'] as List<dynamic>? ?? [])
-          .map((e) => DiaryEntry.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      lastUpdated: json['last_updated'] != null
-          ? DateTime.parse(json['last_updated'] as String)
-          : DateTime.now(),
+      diaryEntries: _mapList(json['diary_entries'], DiaryEntry.fromJson),
+      lastUpdated: _asDateTime(json['last_updated']) ?? DateTime.now(),
     );
   }
 }
@@ -196,8 +292,8 @@ class PrivacySettings {
 
   factory PrivacySettings.fromJson(Map<String, dynamic> json) {
     return PrivacySettings(
-      aiMemoryEnabled: json['ai_memory_enabled'] as bool? ?? true,
-      aiCanAccessDiary: json['ai_can_access_diary'] as bool? ?? true,
+      aiMemoryEnabled: _asBool(json['ai_memory_enabled']) ?? true,
+      aiCanAccessDiary: _asBool(json['ai_can_access_diary']) ?? true,
     );
   }
 }
@@ -230,10 +326,10 @@ class DiaryEntry {
 
   factory DiaryEntry.fromJson(Map<String, dynamic> json) {
     return DiaryEntry(
-      date: DateTime.parse(json['date'] as String),
-      mood: json['mood'] as String?,
-      symptomTags: List<String>.from(json['symptom_tags'] ?? []),
-      text: json['text'] as String? ?? '',
+      date: _asDateTime(json['date']) ?? DateTime.now(),
+      mood: _asString(json['mood']),
+      symptomTags: _stringList(json['symptom_tags']),
+      text: _asString(json['text']) ?? '',
     );
   }
 }
@@ -260,17 +356,23 @@ class Demographics {
     this.maritalStatus,
   });
 
+  /// Self-documenting for callers: omit a parameter to keep the old
+  /// value, pass an explicit null to CLEAR it, pass a value to change
+  /// it. (The old signature could neither clear fields nor accept
+  /// coerced values, which is how stale demographics went sticky.)
   Demographics copyWith({
-    int? ageYrs,
-    double? weightKg,
-    double? heightCm,
-    String? maritalStatus,
+    Object? ageYrs = _unset,
+    Object? weightKg = _unset,
+    Object? heightCm = _unset,
+    Object? maritalStatus = _unset,
   }) {
     return Demographics(
-      ageYrs: ageYrs ?? this.ageYrs,
-      weightKg: weightKg ?? this.weightKg,
-      heightCm: heightCm ?? this.heightCm,
-      maritalStatus: maritalStatus ?? this.maritalStatus,
+      ageYrs: ageYrs == _unset ? this.ageYrs : _asInt(ageYrs),
+      weightKg: weightKg == _unset ? this.weightKg : _asDouble(weightKg),
+      heightCm: heightCm == _unset ? this.heightCm : _asDouble(heightCm),
+      maritalStatus: maritalStatus == _unset
+          ? this.maritalStatus
+          : _asString(maritalStatus),
     );
   }
 
@@ -283,10 +385,10 @@ class Demographics {
 
   factory Demographics.fromJson(Map<String, dynamic> json) {
     return Demographics(
-      ageYrs: json['age_yrs'] as int?,
-      weightKg: (json['weight_kg'] as num?)?.toDouble(),
-      heightCm: (json['height_cm'] as num?)?.toDouble(),
-      maritalStatus: json['marital_status'] as String?,
+      ageYrs: _asInt(json['age_yrs']),
+      weightKg: _asDouble(json['weight_kg']),
+      heightCm: _asDouble(json['height_cm']),
+      maritalStatus: _asString(json['marital_status']),
     );
   }
 }
@@ -316,21 +418,32 @@ class Lifestyle {
     this.notes,
   });
 
+  /// Omit to keep, explicit null to clear, value to change.
   Lifestyle copyWith({
-    bool? regularExercise,
-    String? exerciseFrequency,
-    String? dietQuality,
-    bool? fastFoodFrequent,
-    double? averageSleepHours,
-    String? notes,
+    Object? regularExercise = _unset,
+    Object? exerciseFrequency = _unset,
+    Object? dietQuality = _unset,
+    Object? fastFoodFrequent = _unset,
+    Object? averageSleepHours = _unset,
+    Object? notes = _unset,
   }) {
     return Lifestyle(
-      regularExercise: regularExercise ?? this.regularExercise,
-      exerciseFrequency: exerciseFrequency ?? this.exerciseFrequency,
-      dietQuality: dietQuality ?? this.dietQuality,
-      fastFoodFrequent: fastFoodFrequent ?? this.fastFoodFrequent,
-      averageSleepHours: averageSleepHours ?? this.averageSleepHours,
-      notes: notes ?? this.notes,
+      regularExercise: regularExercise == _unset
+          ? this.regularExercise
+          : _asBool(regularExercise),
+      exerciseFrequency: exerciseFrequency == _unset
+          ? this.exerciseFrequency
+          : _asString(exerciseFrequency),
+      dietQuality: dietQuality == _unset
+          ? this.dietQuality
+          : _asString(dietQuality),
+      fastFoodFrequent: fastFoodFrequent == _unset
+          ? this.fastFoodFrequent
+          : _asBool(fastFoodFrequent),
+      averageSleepHours: averageSleepHours == _unset
+          ? this.averageSleepHours
+          : _asDouble(averageSleepHours),
+      notes: notes == _unset ? this.notes : _asString(notes),
     );
   }
 
@@ -345,12 +458,12 @@ class Lifestyle {
 
   factory Lifestyle.fromJson(Map<String, dynamic> json) {
     return Lifestyle(
-      regularExercise: json['regular_exercise'] as bool?,
-      exerciseFrequency: json['exercise_frequency'] as String?,
-      dietQuality: json['diet_quality'] as String?,
-      fastFoodFrequent: json['fast_food_frequent'] as bool?,
-      averageSleepHours: (json['average_sleep_hours'] as num?)?.toDouble(),
-      notes: json['notes'] as String?,
+      regularExercise: _asBool(json['regular_exercise']),
+      exerciseFrequency: _asString(json['exercise_frequency']),
+      dietQuality: _asString(json['diet_quality']),
+      fastFoodFrequent: _asBool(json['fast_food_frequent']),
+      averageSleepHours: _asDouble(json['average_sleep_hours']),
+      notes: _asString(json['notes']),
     );
   }
 }
@@ -379,17 +492,23 @@ class ReproductiveHistory {
     this.contraceptionHistory = const [],
   });
 
+  /// Omit to keep, explicit null to clear, value to change.
   ReproductiveHistory copyWith({
-    String? cycleRegularity,
-    int? cycleLengthDays,
-    String? currentContraceptionMethod,
+    Object? cycleRegularity = _unset,
+    Object? cycleLengthDays = _unset,
+    Object? currentContraceptionMethod = _unset,
     List<ContraceptionLogEntry>? contraceptionHistory,
   }) {
     return ReproductiveHistory(
-      cycleRegularity: cycleRegularity ?? this.cycleRegularity,
-      cycleLengthDays: cycleLengthDays ?? this.cycleLengthDays,
-      currentContraceptionMethod:
-          currentContraceptionMethod ?? this.currentContraceptionMethod,
+      cycleRegularity: cycleRegularity == _unset
+          ? this.cycleRegularity
+          : _asString(cycleRegularity),
+      cycleLengthDays: cycleLengthDays == _unset
+          ? this.cycleLengthDays
+          : _asInt(cycleLengthDays),
+      currentContraceptionMethod: currentContraceptionMethod == _unset
+          ? this.currentContraceptionMethod
+          : _asString(currentContraceptionMethod),
       contraceptionHistory: contraceptionHistory ?? this.contraceptionHistory,
     );
   }
@@ -405,17 +524,15 @@ class ReproductiveHistory {
 
   factory ReproductiveHistory.fromJson(Map<String, dynamic> json) {
     return ReproductiveHistory(
-      cycleRegularity: json['cycle_regularity'] as String?,
-      cycleLengthDays: json['cycle_length_days'] as int?,
-      currentContraceptionMethod:
-          json['current_contraception_method'] as String?,
-      contraceptionHistory:
-          (json['contraception_history'] as List<dynamic>? ?? [])
-              .map(
-                (e) =>
-                    ContraceptionLogEntry.fromJson(e as Map<String, dynamic>),
-              )
-              .toList(),
+      cycleRegularity: _asString(json['cycle_regularity']),
+      cycleLengthDays: _asInt(json['cycle_length_days']),
+      currentContraceptionMethod: _asString(
+        json['current_contraception_method'],
+      ),
+      contraceptionHistory: _mapList(
+        json['contraception_history'],
+        ContraceptionLogEntry.fromJson,
+      ),
     );
   }
 }
@@ -439,9 +556,9 @@ class ContraceptionLogEntry {
 
   factory ContraceptionLogEntry.fromJson(Map<String, dynamic> json) {
     return ContraceptionLogEntry(
-      date: DateTime.parse(json['date'] as String),
-      method: json['method'] as String,
-      note: json['note'] as String?,
+      date: _asDateTime(json['date']) ?? DateTime.now(),
+      method: _asString(json['method']) ?? 'Not recorded',
+      note: _asString(json['note']),
     );
   }
 }
@@ -474,10 +591,10 @@ class PcosCheckResult {
 
   factory PcosCheckResult.fromJson(Map<String, dynamic> json) {
     return PcosCheckResult(
-      date: DateTime.parse(json['date'] as String),
-      prediction: json['prediction'] as String,
-      pcosProbability: (json['pcos_probability'] as num).toDouble(),
-      modelUsed: json['model_used'] as String,
+      date: _asDateTime(json['date']) ?? DateTime.now(),
+      prediction: _asString(json['prediction']) ?? 'Not recorded',
+      pcosProbability: _asDouble(json['pcos_probability']) ?? 0.0,
+      modelUsed: _asString(json['model_used']) ?? 'unknown',
     );
   }
 }
@@ -505,8 +622,8 @@ class EligibilityResultEntry {
 
   factory EligibilityResultEntry.fromJson(Map<String, dynamic> json) {
     return EligibilityResultEntry(
-      methodLabel: json['method_label'] as String,
-      category: json['category'] as int,
+      methodLabel: _asString(json['method_label']) ?? 'Unknown method',
+      category: _asInt(json['category']) ?? 0,
     );
   }
 }
@@ -534,13 +651,9 @@ class EligibilityCheckResult {
 
   factory EligibilityCheckResult.fromJson(Map<String, dynamic> json) {
     return EligibilityCheckResult(
-      date: DateTime.parse(json['date'] as String),
-      conditions: List<String>.from(json['conditions'] ?? []),
-      results: (json['results'] as List<dynamic>? ?? [])
-          .map(
-            (e) => EligibilityResultEntry.fromJson(e as Map<String, dynamic>),
-          )
-          .toList(),
+      date: _asDateTime(json['date']) ?? DateTime.now(),
+      conditions: _stringList(json['conditions']),
+      results: _mapList(json['results'], EligibilityResultEntry.fromJson),
     );
   }
 }
@@ -567,16 +680,21 @@ class MentalHealthFlags {
     this.lastCheckIn,
   });
 
+  /// Omit to keep, explicit null to clear, value to change. A stress
+  /// value passed here goes through the same 1..5 clamp as parsing.
   MentalHealthFlags copyWith({
-    int? selfReportedStressLevel,
-    String? notes,
-    DateTime? lastCheckIn,
+    Object? selfReportedStressLevel = _unset,
+    Object? notes = _unset,
+    Object? lastCheckIn = _unset,
   }) {
     return MentalHealthFlags(
-      selfReportedStressLevel:
-          selfReportedStressLevel ?? this.selfReportedStressLevel,
-      notes: notes ?? this.notes,
-      lastCheckIn: lastCheckIn ?? this.lastCheckIn,
+      selfReportedStressLevel: selfReportedStressLevel == _unset
+          ? this.selfReportedStressLevel
+          : _asStress(selfReportedStressLevel),
+      notes: notes == _unset ? this.notes : _asString(notes),
+      lastCheckIn: lastCheckIn == _unset
+          ? this.lastCheckIn
+          : _asDateTime(lastCheckIn),
     );
   }
 
@@ -588,11 +706,9 @@ class MentalHealthFlags {
 
   factory MentalHealthFlags.fromJson(Map<String, dynamic> json) {
     return MentalHealthFlags(
-      selfReportedStressLevel: json['self_reported_stress_level'] as int?,
-      notes: json['notes'] as String?,
-      lastCheckIn: json['last_check_in'] != null
-          ? DateTime.parse(json['last_check_in'] as String)
-          : null,
+      selfReportedStressLevel: _asStress(json['self_reported_stress_level']),
+      notes: _asString(json['notes']),
+      lastCheckIn: _asDateTime(json['last_check_in']),
     );
   }
 }
