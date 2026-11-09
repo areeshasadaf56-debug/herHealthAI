@@ -450,6 +450,21 @@ class HealthProfileService {
     _scheduleServerPush(profile);
   }
 
+  /// Fully forgets everything in memory: the cached profile, any queued
+  /// upload, and the identity it belonged to. Used when the user logs
+  /// out with "remove cycle data", so a deleted account's data never
+  /// lingers in RAM. The next loadProfile() starts fresh for whatever
+  /// identity exists then.
+  void discardCachedProfile() {
+    _cachedProfile = null;
+    _nextPush = null;
+    _cachedDeviceId = null;
+    _activeUserId = null;
+    lastSyncError = null;
+    syncState.value = ProfileSyncState.synced;
+    profileUpdated.value = null;
+  }
+
   /// Convenience: apply a partial update without needing the caller to
   /// hand back a full HealthProfile. Example:
   ///   await service.updateProfile((p) => p.copyWith(

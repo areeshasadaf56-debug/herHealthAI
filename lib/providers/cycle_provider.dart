@@ -6,6 +6,7 @@ import '../models/cycle_data.dart';
 import '../models/daily_log.dart';
 import '../config/api_config.dart';
 import '../services/auth_session.dart';
+import '../services/health_profile_service.dart';
 
 class CycleProvider extends ChangeNotifier {
   CycleData _cycleData = CycleData(
@@ -87,12 +88,165 @@ class CycleProvider extends ChangeNotifier {
     return _isSameDay(_selectedPeriodDate!, date);
   }
 
+  // ---- Per-account local cycle data (review task 1.1) -----------------
+  //
+  // The cycle keys used to be global, so a second account that signed
+  // in saw the first account's logs. Now everything is stored as
+  // `<key>:<accountUserId>`; the legacy unscoped copies written by
+  // older app versions are migrated ONCE, into the FIRST account that
+  // signs in after this change (never silently for later accounts).
+
+  /// Every base key whose storage must be scoped to an account.
+  static const List<String> _userScopedKeys = [
+    'lastPeriodStart',
+    'cycleLength',
+    'periodDuration',
+    'dailyLogs',
+    'remindersEnabled',
+    'userName',
+  ];
+
+  static const String _legacyMigratedMarker = 'cycleLegacyMigratedBy';
+
+  String _scopedKey(String baseKey) =>
+      (_userId == null || _userId!.isEmpty) ? baseKey : '$baseKey:$_userId';
+
+  /// Copies any legacy unscoped cycle data to the signing-in account,
+  /// exactly once (the first account only). Existing accounts that
+  /// already carry scoped data are never touched, and later accounts
+  /// cannot inherit someone else's leftover keys.
+  Future<void> _migrateLegacyDataForUser(SharedPreferences prefs) async {
+    if (_userId == null || _userId!.isEmpty) return;
+    if (prefs.getString(_legacyMigratedMarker) != null) return;
+    final anyScoped = _userScopedKeys.any(
+      (k) => prefs.containsKey('$k:$_userId'),
+    );
+    if (anyScoped) return;
+
+    var copied = false;
+    Future<void> copyInt(String key) async {
+      final v = prefs.getInt(key);
+      if (v != null) {
+        await prefs.setInt('$key:$_userId', v);
+        copied = true;
+      }
+    }
+
+    Future<void> copyString(String key) async {
+      final v = prefs.getString(key);
+      if (v != null) {
+        await prefs.setString('$key:$_userId', v);
+        copied = true;
+      }
+    }
+
+    Future<void> copyBool(String key) async {
+      final v = prefs.getBool(key);
+      if (v != null) {
+        await prefs.setBool('$key:$_userId', v);
+        copied = true;
+      }
+    }
+
+    await copyInt('lastPeriodStart');
+    await copyInt('cycleLength');
+    await copyInt('periodDuration');
+    await copyString('dailyLogs');
+    await copyBool('remindersEnabled');
+    await copyString('userName');
+    if (copied) {
+      // Blob marker records WHICH account inherited the legacy data, so
+      // it can be the cleanup target on "remove data" logouts too.
+      await prefs.setString(_legacyMigratedMarker, _userId!);
+    }
+  }
+
+  /// Re-reads the signed-in user's scoped data into memory (called
+  /// right after a sign-in/migration so the UI reflects the new
+  /// account immediately). Deliberately resets to blank whenever the
+  /// account has nothing stored -- in-memory data that existed before
+  /// the sign-in belongs to the previous identity, never to this one.
+  Future<void> _reloadPerUserData(SharedPreferences prefs) async {
+    final lastPeriodMillis = prefs.getInt(_scopedKey('lastPeriodStart'));
+    if (lastPeriodMillis != null) {
+      _cycleData = CycleData(
+        lastPeriodStart: DateTime.fromMillisecondsSinceEpoch(lastPeriodMillis),
+        cycleLength: prefs.getInt(_scopedKey('cycleLength')) ?? 28,
+        periodDuration: prefs.getInt(_scopedKey('periodDuration')) ?? 5,
+      );
+      _selectedPeriodDate = _cycleData.lastPeriodStart;
+    } else {
+      // Fresh account, no stored dates: blank state, never the
+      // previous account's or the signed-out session's data.
+      _cycleData = CycleData(
+        lastPeriodStart: DateTime.now().subtract(const Duration(days: 14)),
+      );
+      _selectedPeriodDate = null;
+    }
+
+    final logsJson = prefs.getString(_scopedKey('dailyLogs'));
+    if (logsJson != null) {
+      try {
+        final decoded = jsonDecode(logsJson) as Map<String, dynamic>;
+        _dailyLogs = decoded.map((k, v) => MapEntry(k, DailyLog.fromJson(v)));
+      } catch (_) {
+        _dailyLogs = {};
+      }
+    } else {
+      _dailyLogs = {};
+    }
+
+    _remindersEnabled = prefs.getBool(_scopedKey('remindersEnabled')) ?? true;
+  }
+
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final lastPeriodMillis = prefs.getInt('lastPeriodStart');
-    final cycleLength = prefs.getInt('cycleLength');
-    final periodDuration = prefs.getInt('periodDuration');
+    // Restore auth state FIRST: per-user data reads below need the
+    // signed-in account id to pick the right scoped keys.
+    // Secrets live behind AuthSession -> SecureStore (Android Keystore /
+    // iOS Keychain), never plain SharedPreferences; SecureStore also
+    // migrates legacy plain-text copies on first read. An expired
+    // stored token is treated as signed out and wiped right there, so
+    // the app can't boot holding a dead session.
+    await AuthSession.ensureLoaded();
+    _userId = AuthSession.userId;
+    _authToken = AuthSession.token;
+    _tokenExpiresAt = AuthSession.expiresAt;
+    _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    // "Logged in" must mean "has a usable session". Otherwise Splash
+    // would route to Home while authenticated calls fail with 401.
+    if (_isLoggedIn && !hasValidSession) {
+      _isLoggedIn = false;
+      await prefs.setBool('isLoggedIn', false);
+    }
+
+    // One-time inheritance of pre-accounts data for a restored session:
+    // the first account that appears after this change claims the
+    // legacy unscoped copies (login() handles the sign-in path).
+    if (_isLoggedIn && _userId != null && _userId!.isNotEmpty) {
+      await _migrateLegacyDataForUser(prefs);
+    }
+
+    final signedIn = _isLoggedIn && _userId != null && _userId!.isNotEmpty;
+    final legacyClaimed = prefs.getString(_legacyMigratedMarker) != null;
+
+    /// Scoped-first key lookup. Anonymous usage keeps the bare key;
+    /// signed-in usage prefers `<key>:<userId>` and only falls back to
+    /// the legacy key while NO account has yet claimed it (after that,
+    /// missing scoped data must mean defaults, never another
+    /// account's/anonymous leftovers).
+    String keyFor(String base) {
+      if (!signedIn) return base;
+      final scoped = '$base:$_userId';
+      if (prefs.containsKey(scoped)) return scoped;
+      return legacyClaimed ? scoped : base;
+    }
+
+    final lastPeriodMillis = prefs.getInt(keyFor('lastPeriodStart'));
+    final cycleLength = prefs.getInt(keyFor('cycleLength'));
+    final periodDuration = prefs.getInt(keyFor('periodDuration'));
 
     if (lastPeriodMillis != null) {
       _cycleData = CycleData(
@@ -103,7 +257,7 @@ class CycleProvider extends ChangeNotifier {
       _selectedPeriodDate = _cycleData.lastPeriodStart;
     }
 
-    final logsJson = prefs.getString('dailyLogs');
+    final logsJson = prefs.getString(keyFor('dailyLogs'));
     if (logsJson != null) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(logsJson);
@@ -115,27 +269,8 @@ class CycleProvider extends ChangeNotifier {
       }
     }
 
-    _remindersEnabled = prefs.getBool('remindersEnabled') ?? true;
-
-    // Restore auth/profile state so a returning user skips sign-in.
-    // Secrets live behind AuthSession -> SecureStore (Android Keystore /
-    // iOS Keychain), never plain SharedPreferences; SecureStore also
-    // migrates legacy plain-text copies on first read. An expired
-    // stored token is treated as signed out and wiped right there, so
-    // the app can't boot holding a dead session.
-    await AuthSession.ensureLoaded();
-    _userId = AuthSession.userId;
-    _authToken = AuthSession.token;
-    _tokenExpiresAt = AuthSession.expiresAt;
-    _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-    _userName = prefs.getString('userName') ?? '';
-
-    // "Logged in" must mean "has a usable session". Otherwise Splash
-    // would route to Home while authenticated calls fail with 401.
-    if (_isLoggedIn && !hasValidSession) {
-      _isLoggedIn = false;
-      await prefs.setBool('isLoggedIn', false);
-    }
+    _remindersEnabled = prefs.getBool(keyFor('remindersEnabled')) ?? true;
+    _userName = prefs.getString(keyFor('userName')) ?? '';
 
     _isLoaded = true;
     notifyListeners();
@@ -145,7 +280,8 @@ class CycleProvider extends ChangeNotifier {
     _remindersEnabled = value;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('remindersEnabled', value);
+    // Scoped per account (falls back to the bare key when signed out).
+    await prefs.setBool(_scopedKey('remindersEnabled'), value);
   }
 
   /// Call on successful sign in / sign up. Persists the logged-in flag,
@@ -169,7 +305,6 @@ class CycleProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('userName', name);
     // Secrets go through the shared AuthSession accessor, which keeps
     // its in-memory mirror AND the encrypted store (Android Keystore /
     // iOS Keychain) in sync, never plain SharedPreferences.
@@ -178,10 +313,27 @@ class CycleProvider extends ChangeNotifier {
       token: token,
       expiresAt: tokenExpiresAt,
     );
+    // Re-derive from the accessor: whatever identity is now established
+    // decides which scoped keys the reload below reads.
+    _userId = AuthSession.userId;
+
+    // One-time inheritance of pre-accounts data (first account only),
+    // then load THIS account's cycle state into memory so the UI
+    // immediately reflects the freshly signed-in account (second
+    // accounts get defaults, never the previous account's data).
+    await _migrateLegacyDataForUser(prefs);
+    await prefs.setString(_scopedKey('userName'), name);
+    await _reloadPerUserData(prefs);
+
     // Drop any legacy plain-text copies left by older versions.
     await prefs.remove('authUserId');
     await prefs.remove('authToken');
     await prefs.remove('authTokenExpiresAt');
+
+    // The reload above swapped the visible cycle state to the new
+    // account's -- make sure the UI hears about that too, not just the
+    // initial identity flip notified at the top.
+    notifyListeners();
   }
 
   String _normalizeEmail(String email) => email.trim().toLowerCase();
@@ -419,11 +571,18 @@ class CycleProvider extends ChangeNotifier {
   }
 
   /// Call from the Settings logout button. Clears the flag so Splash
-  /// routes back to Sign In next launch, but keeps cycle/log data intact.
+  /// routes back to Sign In next launch, keeps cycle/log data intact by
+  /// default, and -- when [removeData] is true -- additionally erases
+  /// this account's locally stored cycle data (plus the legacy unscoped
+  /// copies some first account inherited them from), the profile sync
+  /// caches, and resets the in-memory cycle state to blank.
   /// Also best-effort invalidates the session token server-side and
   /// clears it locally so no stale Authorization header lingers around.
-  Future<void> logout() async {
+  Future<void> logout({bool removeData = false}) async {
     final tokenToInvalidate = _authToken;
+    // Remember WHICH account is leaving before the identity is cleared,
+    // so "remove data" can target its scoped keys.
+    final removedUserId = _userId;
 
     _isLoggedIn = false;
     _userId = null;
@@ -434,6 +593,43 @@ class CycleProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', false);
+
+    if (removeData) {
+      // "Remove cycle data & log out": wipe scoped keys for this
+      // account, the legacy unscoped copies (which the first signed-in
+      // account inherited its data from, and which anonymous use
+      // writes to), and the once-only migration marker so nothing
+      // re-inherits from now-erased data.
+      for (final base in _userScopedKeys) {
+        if (removedUserId != null && removedUserId.isNotEmpty) {
+          await prefs.remove('$base:$removedUserId');
+        }
+        await prefs.remove(base);
+      }
+      await prefs.remove(_legacyMigratedMarker);
+      // Profile-sync caches for every identity on this device, so the
+      // removed account's cache can never resurface its data after a
+      // "remove" logout (accounts re-fetch their remote copy on sign-in).
+      for (final key in prefs.getKeys().toList()) {
+        if (key.startsWith('health_profile_cache_')) {
+          await prefs.remove(key);
+        }
+      }
+      // In-memory: blank cycle state so no removed data lingers on
+      // screen behind the sign-in navigation.
+      _cycleData = CycleData(
+        lastPeriodStart: DateTime.now().subtract(const Duration(days: 14)),
+      );
+      _selectedPeriodDate = null;
+      _dailyLogs = {};
+      _remindersEnabled = true;
+      _userName = '';
+      HealthProfileService().discardCachedProfile();
+      // The identity flip was notified above; notify again so the UI
+      // repaints with the blanked state.
+      notifyListeners();
+    }
+
     // Single source of truth: AuthSession wipes its memory mirror AND
     // the encrypted store (plus legacy plain-text copies).
     await AuthSession.clear();
@@ -457,17 +653,20 @@ class CycleProvider extends ChangeNotifier {
     _userName = name;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('userName', name);
+    // Scoped per account (falls back to the bare key when signed out).
+    await prefs.setString(_scopedKey('userName'), name);
   }
 
   Future<void> _saveCycleData() async {
     final prefs = await SharedPreferences.getInstance();
+    // Scoped per account (falls back to the bare key when signed out),
+    // so a second account signing in never reads the first one's dates.
     await prefs.setInt(
-      'lastPeriodStart',
+      _scopedKey('lastPeriodStart'),
       _cycleData.lastPeriodStart.millisecondsSinceEpoch,
     );
-    await prefs.setInt('cycleLength', _cycleData.cycleLength);
-    await prefs.setInt('periodDuration', _cycleData.periodDuration);
+    await prefs.setInt(_scopedKey('cycleLength'), _cycleData.cycleLength);
+    await prefs.setInt(_scopedKey('periodDuration'), _cycleData.periodDuration);
   }
 
   Future<void> _saveDailyLogs() async {
@@ -475,7 +674,8 @@ class CycleProvider extends ChangeNotifier {
     final Map<String, dynamic> encoded = _dailyLogs.map(
       (key, value) => MapEntry(key, value.toJson()),
     );
-    await prefs.setString('dailyLogs', jsonEncode(encoded));
+    // Scoped per account (falls back to the bare key when signed out).
+    await prefs.setString(_scopedKey('dailyLogs'), jsonEncode(encoded));
   }
 
   void updateLastPeriodStart(DateTime date) {

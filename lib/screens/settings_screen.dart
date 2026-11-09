@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/cycle_provider.dart';
+import '../services/auth_session.dart';
 import '../theme/app_theme.dart';
 import 'cycle_data_screen.dart';
 import 'about_screen.dart';
@@ -27,16 +28,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadUserName() async {
+    // Read through the same per-account scoping the provider writes:
+    // the bare legacy key until an account claims it, then
+    // `userName:<account id>` for whoever is signed in.
+    await AuthSession.ensureLoaded();
+    final userId = AuthSession.userId;
     final prefs = await SharedPreferences.getInstance();
-    final savedName = prefs.getString('userName');
+    var savedName = (userId != null && userId.isNotEmpty)
+        ? prefs.getString('userName:$userId')
+        : null;
+    savedName ??= prefs.getString('userName');
     if (savedName != null && savedName.isNotEmpty && mounted) {
-      setState(() => _userName = savedName);
+      final name = savedName; // capture for the closure (no promotion)
+      setState(() => _userName = name);
     }
   }
 
   Future<void> _saveUserName(String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('userName', name);
+    // Writes the scoped key (falls back to the bare key when signed
+    // out) and notifies the whole app -- bypassing the provider here
+    // would leave a second account reading the previous account's name.
+    context.read<CycleProvider>().updateUserName(name);
   }
 
   @override
@@ -333,54 +345,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _logoutButton(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            backgroundColor: AppColors.surface,
-            title: Text(
-              'Log Out',
-              style: AppTextStyles.sans(size: 16, weight: FontWeight.w600),
-            ),
-            content: Text(
-              'Are you sure you want to log out?',
-              style: AppTextStyles.sans(
-                size: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  // Close the confirmation dialog first, then navigate to
-                  // Sign In and clear the entire navigation stack behind
-                  // it, so the back button can't return into the app.
-                  Navigator.pop(dialogContext);
-                  // Actually clear the saved login (token + flag) so the
-                  // app doesn't treat you as signed in on the next start.
-                  // Not awaited: the server call is best-effort.
-                  context.read<CycleProvider>().logout();
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SignInScreen(),
-                    ),
-                    (route) => false,
-                  );
-                },
-                child: Text(
-                  'Log Out',
-                  style: TextStyle(color: const Color(0xFFE57373)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      onTap: () => _showLogoutDialog(context),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -399,6 +364,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  /// Three honest outcomes (task 1.1): the old dialog pretended "log
+  /// out" meant one thing while silently keeping data; now the user
+  /// explicitly chooses between keeping data on the device and erasing
+  /// it before leaving.
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Log Out',
+          style: AppTextStyles.sans(size: 16, weight: FontWeight.w600),
+        ),
+        content: Text(
+          'Sign out and keep your cycle data on this device, or erase it '
+          'from the device too? Your account and anything already synced '
+          'to the server are not deleted.',
+          style: AppTextStyles.sans(size: 13, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () =>
+                _finishLogout(context, dialogContext, removeData: false),
+            child: Text(
+              'Keep data on device',
+              style: AppTextStyles.sans(
+                size: 13,
+                weight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                _finishLogout(context, dialogContext, removeData: true),
+            child: Text(
+              'Remove cycle data & log out',
+              style: AppTextStyles.sans(
+                size: 13,
+                weight: FontWeight.w600,
+                color: const Color(0xFFE57373),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Closes the dialog, performs the actual logout (awaited, so the
+  /// local wipe finishes before navigation) and returns the user to
+  /// Sign In with the whole stack cleared behind it.
+  Future<void> _finishLogout(
+    BuildContext context,
+    BuildContext dialogContext, {
+    required bool removeData,
+  }) async {
+    // Capture everything needed across the await BEFORE it, so no
+    // widget/deactivated-context access happens after the dialog closes.
+    final provider = context.read<CycleProvider>();
+    final navigator = Navigator.of(context);
+    Navigator.pop(dialogContext); // close the confirmation dialog first
+
+    // The server token invalidation inside logout() is best-effort, but
+    // the local session/data wipe completes before we navigate on.
+    await provider.logout(removeData: removeData);
+
+    if (context.mounted) {
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SignInScreen()),
+        (route) => false,
+      );
+    }
   }
 
   void _showRateDialog(BuildContext context) {
