@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/ai_response.dart';
 import '../models/health_profile.dart';
+import '../services/secure_store.dart';
 
 /// Thrown when there's no valid session to attach to a /chat request
 /// (not signed in, or the session expired/was revoked server-side).
@@ -21,16 +21,17 @@ class AuthRequiredException implements Exception {
   String toString() => message;
 }
 
-/// A failed /chat request with a message that is safe to show the user.
-/// Replaces the one-size-fits-all "couldn't reach the assistant" text so
-/// rate limits, oversized messages, timeouts and server faults are told apart.
-class ChatException implements Exception {
-  final int? statusCode;
-  final String userMessage;
-  const ChatException(this.userMessage, {this.statusCode});
+/// Thrown when the request DID reach the server / provider but something
+/// failed on the way to a reply: the server's AI provider isn't
+/// configured (no GROQ_API_KEY), the provider is busy/rate-limited, a
+/// request timed out, or there's no internet. The message is meant to be
+/// shown verbatim in the chat screen.
+class ChatServerException implements Exception {
+  final String message;
+  const ChatServerException(this.message);
 
   @override
-  String toString() => 'ChatException($statusCode): $userMessage';
+  String toString() => message;
 }
 
 /// A file/image the user attached to a chat message, sent to the
@@ -68,38 +69,60 @@ class AiService {
     String language = 'en',
     ChatAttachment? attachment,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('authToken');
-    if (token == null) {
+    // Read from encrypted storage -- the same place CycleProvider and
+    // HealthProfileService write the session. (Reading SharedPreferences
+    // directly here used to miss the token after the secure-storage
+    // migration, so AI Check-in falsely reported "please sign in".)
+    final token = await SecureStore.read(SecureStore.tokenKey);
+    final expiresMillis = await SecureStore.readExpiryMillis();
+    final expired =
+        expiresMillis != null &&
+        DateTime.fromMillisecondsSinceEpoch(
+          expiresMillis,
+        ).isBefore(DateTime.now());
+    if (token == null || token.isEmpty) {
       throw const AuthRequiredException();
+    }
+    if (expired) {
+      throw const AuthRequiredException(
+        'Your session expired. Please sign in again.',
+      );
     }
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/chat');
-    final response = await http
-        .post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode({
-            'message': message,
-            'language': language,
-            // Server only uses the recent turns; sending the whole chat
-            // made long conversations fail validation.
-            'history': _recentHistory(history),
-            // ignore: use_null_aware_elements
-            if (profileContext != null) 'profile_context': profileContext,
-            // ignore: use_null_aware_elements
-            if (attachment != null) 'attachment': attachment.toJson(),
-          }),
-        )
-        .timeout(
-          const Duration(seconds: 45),
-          onTimeout: () => throw const ChatException(
-            'The assistant is taking longer than usual. Please try again.',
-          ),
-        );
+
+    http.Response response;
+    try {
+      response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'message': message,
+              'language': language,
+              'history': history
+                  .map((e) => {'role': e.role, 'message': e.message})
+                  .toList(),
+              // ignore: use_null_aware_elements
+              if (profileContext != null) 'profile_context': profileContext,
+              // ignore: use_null_aware_elements
+              if (attachment != null) 'attachment': attachment.toJson(),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      throw const ChatServerException(
+        'The assistant took too long to reply. Please try again.',
+      );
+    } catch (_) {
+      throw const ChatServerException(
+        "Couldn't reach the AI server. Please check your internet "
+        'connection and try again.',
+      );
+    }
 
     if (response.statusCode == 401) {
       throw const AuthRequiredException(
@@ -108,50 +131,29 @@ class AiService {
     }
 
     if (response.statusCode != 200) {
-      throw ChatException(
-        _messageForStatus(response.statusCode),
-        statusCode: response.statusCode,
+      // The server sends a short, user-facing `detail` (e.g. "AI assistant
+      // isn't configured on this server yet..."). Show it verbatim --
+      // previously this was flattened to a generic "couldn't reach the
+      // assistant" line that hid the actual cause.
+      String detail = '';
+      try {
+        final parsed = jsonDecode(response.body);
+        if (parsed is Map && parsed['detail'] is String) {
+          detail = parsed['detail'] as String;
+        }
+      } catch (_) {
+        // Body wasn't JSON -- fall through to the generic message.
+      }
+      throw ChatServerException(
+        detail.isNotEmpty
+            ? detail
+            : 'The assistant is unavailable right now '
+                '(HTTP ${response.statusCode}). Please try again shortly.',
       );
     }
 
     return AiResponse.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
-  }
-
-  static const int _maxHistoryTurns = 10;
-  static const int _maxEntryChars = 4000;
-
-  List<Map<String, String>> _recentHistory(List<ConversationEntry> history) {
-    final recent = history.length > _maxHistoryTurns
-        ? history.sublist(history.length - _maxHistoryTurns)
-        : history;
-    return recent
-        .where((e) => e.message.trim().isNotEmpty)
-        .map(
-          (e) => {
-            'role': e.role,
-            'message': e.message.length > _maxEntryChars
-                ? e.message.substring(0, _maxEntryChars)
-                : e.message,
-          },
-        )
-        .toList();
-  }
-
-  String _messageForStatus(int code) {
-    switch (code) {
-      case 413:
-      case 422:
-        return 'That message couldn\'t be processed. Try a shorter one.';
-      case 429:
-        return 'You\'re sending messages quickly. Please wait a minute and try again.';
-      case 502:
-      case 503:
-      case 504:
-        return 'The assistant is temporarily unavailable. Please try again shortly.';
-      default:
-        return 'Something went wrong on our side (error $code). Please try again.';
-    }
   }
 }

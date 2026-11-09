@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart' hide Text;
-import '../l10n/app_text.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/cycle_provider.dart';
@@ -140,7 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.cardBorder),
         ),
         child: Row(
@@ -263,7 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorder),
         ),
         child: Row(
@@ -307,7 +306,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder),
       ),
       child: Row(
@@ -361,6 +360,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Sign In and clear the entire navigation stack behind
                   // it, so the back button can't return into the app.
                   Navigator.pop(dialogContext);
+                  // Actually clear the saved login (token + flag) so the
+                  // app doesn't treat you as signed in on the next start.
+                  // Not awaited: the server call is best-effort.
+                  context.read<CycleProvider>().logout();
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
@@ -371,7 +374,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 child: Text(
                   'Log Out',
-                  style: TextStyle(color: AppColors.danger),
+                  style: TextStyle(color: const Color(0xFFE57373)),
                 ),
               ),
             ],
@@ -382,8 +385,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.danger.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(18),
+          color: const Color(0xFFFFEBEE),
+          borderRadius: BorderRadius.circular(12),
         ),
         alignment: Alignment.center,
         child: Text(
@@ -391,7 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: AppTextStyles.sans(
             size: 14,
             weight: FontWeight.w600,
-            color: AppColors.danger,
+            color: const Color(0xFFE57373),
           ),
         ),
       ),

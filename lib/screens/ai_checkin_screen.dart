@@ -2,16 +2,29 @@ import 'dart:convert';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:file_picker/file_picker.dart';
-import '../theme/app_theme.dart';
 import '../l10n/app_text.dart';
 import '../l10n/language_provider.dart';
+import '../theme/app_theme.dart';
 import '../models/health_profile.dart';
 import '../providers/cycle_provider.dart';
 import '../services/health_profile_service.dart';
 import '../services/ai_service.dart';
+import '../services/chat_nav_hints.dart';
+import 'health_diary_screen.dart';
+import 'sign_in_screen.dart';
+
+// ---- Claude-inspired look for this screen only (warm paper + terracotta).
+// Deliberately local constants so the rest of the app keeps its rose theme.
+const Color _cBg = Color(0xFFFAF9F5); // warm cream "paper" background
+const Color _cClay = Color(0xFFC96442); // terracotta accent (send, links)
+const Color _cClaySoft = Color(0xFFFBEFE7); // soft clay tint
+const Color _cUserBubble = Color(0xFFF0EEE5); // user turn bubble
+const Color _cText = Color(0xFF20201E); // near-black body text
+const Color _cMuted = Color(0xFF8A8781); // secondary gray
+const Color _cBorder = Color(0xFFE7E3DA); // hairline border
+const Color _cWhite = Color(0xFFFFFFFF);
 
 class _ChatSession {
   final String sessionId;
@@ -53,16 +66,18 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
   bool _sending = false;
   bool _showCrisisBanner = false;
   bool _showMedicalEmergencyBanner = false;
-  String? _pendingSuggestedTab;
-  String? _pendingSuggestedReason;
+  // Suggestion banner shown above the input ("Take me to PCOS / Endo / Diary").
+  ChatNavHint? _navHint;
   String? _errorText;
+  bool _needsSignIn = false;
 
-  // --- Language toggle (English / Urdu) ---
-  // Persisted so the choice survives app restarts. The backend must
-  // read `language` from the /chat request and reply accordingly --
-  // see AiService.sendMessage.
+  // --- Language ---
+  // Derived from the app-wide LanguageProvider (the fixed "EN | اردو"
+  // pill at the top of every screen) instead of a separate in-screen
+  // toggle. One switch now controls the whole app AND what language
+  // Saheli replies in; the class name is kept because the language
+  // flag is threaded through many screen methods below.
   String _language = 'en';
-  static const _languageKey = 'ai_checkin_language';
 
   // --- Voice input (speech-to-text) ---
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -80,11 +95,15 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       "Hi -- I'm here to check in on how you've really been. Take your "
       "time, there's no rush. How have you been feeling lately, overall?";
 
+  static const _openingGreetingUr =
+      'سلام -- میں یہ جاننے اِس لیے آئی ہوں کہ آج آپ حال میں واقعی کیسے '
+      'محسوس کر رہی ہیں۔ آرام سے، کوئی جلدی نہیں۔ آپ حال ہی میں مجموعی '
+      'طور پر کیسا محسوس کر رہی ہیں؟';
+
   @override
   void initState() {
     super.initState();
     _loadInitialState();
-    _loadLanguagePreference();
     _initSpeech();
   }
 
@@ -95,26 +114,6 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
     _inputFocusNode.dispose();
     if (_listening) _speech.stop();
     super.dispose();
-  }
-
-  Future<void> _loadLanguagePreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_languageKey);
-    if (saved != null && mounted) {
-      setState(() => _language = saved);
-    }
-  }
-
-  // The chat language now follows the app-wide English / Urdu setting.
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _language = Provider.of<LanguageProvider>(context).code;
-  }
-
-  Future<void> _toggleLanguage() async {
-    // Switches the whole app (and the chat) together.
-    await context.read<LanguageProvider>().toggle();
   }
 
   /// Sets up the 2speech recognizer. On Flutter web this uses the
@@ -282,18 +281,40 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       ConversationEntry(
         timestamp: DateTime.now(),
         role: 'assistant',
-        message: _openingGreeting,
+        message: LanguageProvider.urdu ? _openingGreetingUr : _openingGreeting,
         sessionId: _currentSessionId,
       ),
     );
-    _pendingSuggestedTab = null;
-    _pendingSuggestedReason = null;
+    _navHint = null;
     _showCrisisBanner = false;
     _showMedicalEmergencyBanner = false;
   }
 
   void _startNewChat() {
     setState(_startFreshSession);
+  }
+
+  /// Bottom sheet with the AI privacy toggles (AI can read my diary /
+  /// AI remembers past conversations). Same profile settings as
+  /// Settings > Data & Privacy, surfaced in-screen because this is where
+  /// chat behavior changes when they're flipped off.
+  void _openPrivacySheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => _PrivacySheet(
+        initialProfile: _profile!,
+        service: _profileService,
+        onProfileUpdated: (updated) {
+          if (!mounted) return;
+          setState(() => _profile = updated);
+        },
+      ),
+    );
   }
 
   void _openHistory() {
@@ -321,7 +342,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Chats',
+                        tr('Chats'),
                         style: AppTextStyles.sans(
                           size: 16,
                           weight: FontWeight.w700,
@@ -337,7 +358,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                             Icon(Icons.add, size: 16, color: AppColors.primary),
                             const SizedBox(width: 4),
                             Text(
-                              'New chat',
+                              tr('New chat'),
                               style: AppTextStyles.sans(
                                 size: 13,
                                 weight: FontWeight.w600,
@@ -355,7 +376,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                       ? Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'No past chats yet.',
+                            tr('No past chats yet.'),
                             style: AppTextStyles.sans(
                               size: 12,
                               color: AppColors.textSecondary,
@@ -380,8 +401,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                                   _messages
                                     ..clear()
                                     ..addAll(s.entries);
-                                  _pendingSuggestedTab = null;
-                                  _pendingSuggestedReason = null;
+                                  _navHint = null;
                                 });
                               },
                               leading: Icon(
@@ -451,13 +471,18 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
     setState(() {
       _sending = true;
       _errorText = null;
-      _pendingSuggestedTab = null;
-      _pendingSuggestedReason = null;
+      _needsSignIn = false;
+      _navHint = null;
       _pendingAttachment = null;
     });
 
+    // The backend accepts at most 10 history entries per request, so only
+    // send the most recent ones (otherwise long chats fail with a 422).
+    final allHistory = List<ConversationEntry>.from(_messages);
     final historyForRequest = _profile!.privacySettings.aiMemoryEnabled
-        ? List<ConversationEntry>.from(_messages)
+        ? (allHistory.length > 10
+              ? allHistory.sublist(allHistory.length - 10)
+              : allHistory)
         : <ConversationEntry>[];
 
     final profileContext = _buildProfileContext();
@@ -520,8 +545,9 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       setState(() {
         _messages.add(assistantEntry);
         if (updatedProfile != null) _profile = updatedProfile;
-        _pendingSuggestedTab = result.suggestedTab;
-        _pendingSuggestedReason = result.suggestedTabReason;
+        _navHint =
+            chatNavHintForTab(result.suggestedTab) ??
+            detectChatNavHint(userText: text, replyText: result.reply);
         if (result.crisisConcern) _showCrisisBanner = true;
         if (result.medicalEmergencyConcern) _showMedicalEmergencyBanner = true;
         _sending = false;
@@ -531,9 +557,13 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       if (!mounted) return;
       setState(() {
         _sending = false;
+        _needsSignIn = e is AuthRequiredException;
         _errorText = e is AuthRequiredException
             ? e.message
-            : "Couldn't reach the check-in assistant. Please try again.";
+            : e is ChatServerException
+                ? e.message
+                : "Couldn't reach the check-in assistant. Please check "
+                    'your internet connection and try again.';
       });
     }
   }
@@ -651,39 +681,111 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return SafeArea(
-      child: Column(
-        children: [
-          _topBar(),
-          if (_showMedicalEmergencyBanner) _medicalEmergencyBanner(),
-          if (_showCrisisBanner) _crisisBanner(),
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount:
-                  _messages.length + (_pendingSuggestedTab != null ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index < _messages.length) {
-                  return _messageBubble(_messages[index]);
-                }
-                return _suggestionCard(
-                  _pendingSuggestedTab!,
-                  _pendingSuggestedReason,
-                );
-              },
-            ),
-          ),
-          if (_errorText != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text(
-                _errorText!,
-                style: AppTextStyles.sans(size: 12, color: AppColors.periodRed),
+    // One app-wide switch (the fixed EN | اردو pill) drives both this
+    // screen's UI language and what language Saheli replies in.
+    _language = context.watch<LanguageProvider>().code;
+
+    return ColoredBox(
+      color: _cBg,
+      child: SafeArea(
+        child: Column(
+          children: [
+            _topBar(),
+            if (_showMedicalEmergencyBanner) _medicalEmergencyBanner(),
+            if (_showCrisisBanner) _crisisBanner(),
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                itemCount: _messages.length + (_sending ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index < _messages.length) {
+                    return _messageBubble(_messages[index]);
+                  }
+                  return _typingBubble();
+                },
               ),
             ),
-          if (_pendingAttachment != null) _attachmentChip(),
-          _inputBar(),
+            if (_navHint != null) _navHintBanner(_navHint!),
+            if (_errorText != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(
+                  _errorText!,
+                  style: AppTextStyles.sans(
+                    size: 12,
+                    color: AppColors.periodRed,
+                  ),
+                ),
+              ),
+            if (_needsSignIn)
+              TextButton(
+                onPressed: _goToSignIn,
+                child: Text(
+                  _language == 'ur' ? 'دوبارہ سائن اِن کریں' : 'Sign in again',
+                  style: AppTextStyles.sans(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: _cClay,
+                  ),
+                ),
+              ),
+            if (_messages.length <= 1) _starterChips(),
+            if (_pendingAttachment != null) _attachmentChip(),
+            _inputBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Claude-style starter prompts on a fresh chat -- one tap sends (and
+  /// remembers) a common check-in opener. They vanish after the first
+  /// exchange.
+  static const _starters = [
+    'How have I been feeling this week?',
+    'A quick check-in on my sleep and stress',
+    'I want to journal about today',
+  ];
+
+  Widget _starterChips() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final s in _starters)
+            GestureDetector(
+              onTap: () {
+                if (_sending) return;
+                _inputController.text = s;
+                _sendMessage();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: _cWhite,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _cBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('✦',
+                        style: TextStyle(fontSize: 10, color: _cClay)),
+                    const SizedBox(width: 6),
+                    Text(
+                      tr(s),
+                      style: AppTextStyles.sans(size: 12.5, color: _cText),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -691,71 +793,71 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
 
   Widget _topBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 8, 12, 10),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.cardBorder)),
+        color: _cBg,
+        border: Border(bottom: BorderSide(color: _cBorder)),
       ),
       child: Row(
         children: [
+          // Claude-style star mark in a soft terracotta disc.
           Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.15),
+            decoration: const BoxDecoration(
+              color: _cClaySoft,
               shape: BoxShape.circle,
             ),
             child: const Center(
-              child: Text('✨', style: TextStyle(fontSize: 15)),
+              child: Text('✦', style: TextStyle(fontSize: 14, color: _cClay)),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Saheli',
-              style: AppTextStyles.sans(size: 15, weight: FontWeight.w700),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr('Saheli'),
+                  style: AppTextStyles.serif(
+                    size: 19,
+                    weight: FontWeight.w600,
+                    color: _cText,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  tr('Your check-in companion'),
+                  style: AppTextStyles.sans(size: 10.5, color: _cMuted),
+                ),
+              ],
             ),
           ),
-          GestureDetector(
-            onTap: _toggleLanguage,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              margin: const EdgeInsets.only(right: 4),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.translate, size: 14, color: AppColors.primary),
-                  const SizedBox(width: 4),
-                  Text(
-                    _language == 'en' ? 'EN' : 'اردو',
-                    style: AppTextStyles.sans(
-                      size: 12,
-                      weight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          IconButton(
+            // AI privacy controls, right where the AI operates: opens a
+            // bottom sheet with the same toggles as Settings >
+            // Data & Privacy (what Saheli may remember / read).
+            tooltip: tr('AI privacy controls'),
+            onPressed: _openPrivacySheet,
+            icon: const Icon(Icons.shield_outlined),
+            color: _cMuted,
+            iconSize: 20,
           ),
           IconButton(
             onPressed: _openHistory,
             icon: const Icon(Icons.history_rounded),
-            color: AppColors.textSecondary,
+            color: _cMuted,
             iconSize: 20,
           ),
           IconButton(
             onPressed: _startNewChat,
             icon: const Icon(Icons.add_comment_outlined),
-            color: AppColors.textSecondary,
+            color: _cMuted,
             iconSize: 20,
           ),
+          // Trailing clearance so the fixed global language pill (pinned
+          // top-right on every screen) never covers these buttons.
+          const SizedBox(width: 94),
         ],
       ),
     );
@@ -821,7 +923,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
               Icon(Icons.favorite, size: 16, color: AppColors.periodRed),
               const SizedBox(width: 8),
               Text(
-                'You matter, and support is available',
+                tr('You matter, and support is available'),
                 style: AppTextStyles.sans(
                   size: 12.5,
                   weight: FontWeight.w700,
@@ -854,106 +956,236 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
 
   Widget _messageBubble(ConversationEntry entry) {
     final isUser = entry.role == 'user';
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
-        ),
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isUser ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(isUser ? 14 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 14),
+    if (isUser) {
+      return Align(
+        alignment: AlignmentDirectional.centerEnd,
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.76,
           ),
-          border: isUser ? null : Border.all(color: AppColors.cardBorder),
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: _cUserBubble,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _cBorder),
+          ),
+          child: Text(
+            entry.message,
+            style: AppTextStyles.sans(size: 13.5, color: _cText),
+          ),
         ),
-        child: Text(
-          entry.message,
-          style: AppTextStyles.sans(
-            size: 13.5,
-            color: isUser ? Colors.white : AppColors.textPrimary,
-          ).copyWith(height: 1.45),
-        ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _suggestionCard(String tab, String? reason) {
-    final label = tab == 'pcos'
-        ? 'PCOS Detection'
-        : 'Contraception & Protection';
-    final color = tab == 'pcos' ? AppColors.periodRed : AppColors.ovulationTeal;
-
+    // Claude-style assistant turn: plain, unhurried text on the paper
+    // background under a small star + name row -- no boxed bubble, so
+    // longer replies read like a letter instead of a chat app.
+    final hour = entry.timestamp.hour % 12 == 0 ? 12 : entry.timestamp.hour % 12;
+    final stamp =
+        '$hour:${entry.timestamp.minute.toString().padLeft(2, '0')} '
+        '${entry.timestamp.hour >= 12 ? 'pm' : 'am'}';
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.explore_outlined, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(
-                'Worth a look: $label',
-                style: AppTextStyles.sans(
-                  size: 12.5,
-                  weight: FontWeight.w700,
-                  color: color,
+              Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                  color: _cClay,
+                  shape: BoxShape.circle,
                 ),
+                child: const Center(
+                  child: Text(
+                    '✦',
+                    style: TextStyle(fontSize: 10, color: Color(0x99FFFFFF)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                tr('Saheli'),
+                style: AppTextStyles.sans(
+                  size: 11.5,
+                  weight: FontWeight.w700,
+                  color: _cClay,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                stamp,
+                style: AppTextStyles.sans(size: 10, color: _cMuted),
               ),
             ],
           ),
-          if (reason != null) ...[
-            const SizedBox(height: 6),
+          const SizedBox(height: 7),
+          Text(
+            entry.message,
+            style: AppTextStyles.sans(size: 14, color: _cText).copyWith(
+              height: 1.55,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Clears the dead session and opens Sign In (no half-logged-in limbo).
+  Future<void> _goToSignIn() async {
+    final provider = context.read<CycleProvider>();
+    final navigator = Navigator.of(context);
+    await provider.clearSession();
+    if (!mounted) return;
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const SignInScreen()),
+      (route) => false,
+    );
+  }
+
+  Widget _typingBubble() {
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: _cWhite,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _cBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _TypingDots(),
+            const SizedBox(width: 9),
             Text(
-              reason,
-              style: AppTextStyles.sans(
-                size: 12,
-                color: AppColors.textSecondary,
-              ).copyWith(height: 1.4),
+              tr('Saheli is thinking…'),
+              style: AppTextStyles.sans(size: 12, color: _cMuted),
             ),
           ],
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                if (widget.onNavigateToTab != null) {
-                  widget.onNavigateToTab!(tab);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Open the $label tab to check this out'),
+        ),
+      ),
+    );
+  }
+
+  void _openNavHint(ChatNavHint hint) {
+    if (hint.target == 'diary') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const HealthDiaryScreen()));
+    } else if (widget.onNavigateToTab != null) {
+      widget.onNavigateToTab!(hint.target);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Open the ${hint.labelEn} tab to check this out'),
+        ),
+      );
+    }
+    setState(() => _navHint = null);
+  }
+
+  /// Pop-up pinned just above the input bar, e.g. "Take me to PCOS".
+  Widget _navHintBanner(ChatNavHint hint) {
+    final isUr = _language == 'ur';
+    final color = hint.color;
+    return Directionality(
+      textDirection: isUr ? TextDirection.rtl : TextDirection.ltr,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+        padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+        decoration: BoxDecoration(
+          color: _cWhite,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.15),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(hint.icon, size: 18, color: color),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isUr
+                        ? '${hint.label(_language)} پر جائیں؟'
+                        : 'Take me to ${hint.label(_language)}?',
+                    style: AppTextStyles.sans(
+                      size: 13,
+                      weight: FontWeight.w700,
+                      color: _cText,
                     ),
-                  );
-                }
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: color,
-                side: BorderSide(color: color.withValues(alpha: 0.6)),
-                padding: const EdgeInsets.symmetric(vertical: 11),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hint.reason(_language),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.sans(
+                      size: 11.5,
+                      color: _cMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () => _openNavHint(hint),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _cClay,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child: Text(
-                'Take me there',
-                style: AppTextStyles.sans(size: 12.5, weight: FontWeight.w600),
+                isUr ? 'لے جائیں' : tr('Take me there'),
+                style: AppTextStyles.sans(
+                  size: 12,
+                  weight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
-          ),
-        ],
+            IconButton(
+              tooltip: isUr ? 'بند کریں' : tr('Dismiss'),
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: _cMuted,
+              ),
+              onPressed: () => setState(() => _navHint = null),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -965,16 +1197,16 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
+        color: _cClaySoft,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: _cClay.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
           Icon(
             isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined,
             size: 16,
-            color: AppColors.primary,
+            color: _cClay,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -987,7 +1219,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
           ),
           GestureDetector(
             onTap: _removeAttachment,
-            child: Icon(Icons.close, size: 16, color: AppColors.textSecondary),
+            child: Icon(Icons.close, size: 16, color: _cMuted),
           ),
         ],
       ),
@@ -1014,16 +1246,22 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
   Widget _inputBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.cardBorder)),
-      ),
+      color: _cBg,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: _cWhite,
           borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: AppColors.cardBorder),
+          border: Border.all(color: _cBorder),
+          boxShadow: [
+            BoxShadow(
+              // Claude's composer floats on a soft default shadow, no
+              // hard outline only.
+              color: _cClay.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -1037,9 +1275,9 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.add),
-              color: AppColors.textSecondary,
+              color: _cMuted,
               iconSize: 20,
-              tooltip: 'Attach a photo or document',
+              tooltip: tr('Attach a photo or document'),
             ),
             Expanded(
               child: Focus(
@@ -1053,16 +1291,17 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                   textDirection: _language == 'ur'
                       ? TextDirection.rtl
                       : TextDirection.ltr,
+                  style: AppTextStyles.sans(size: 13.5, color: _cText),
                   onSubmitted: (_) => _sendMessage(),
                   decoration: InputDecoration(
                     hintText: _listening
-                        ? 'Listening…'
+                        ? tr('Listening…')
                         : (_language == 'ur'
                               ? 'سہیلی کو پیغام بھیجیں…'
-                              : 'Message Saheli…'),
+                              : tr('Message Saheli…')),
                     hintStyle: AppTextStyles.sans(
                       size: 13,
-                      color: AppColors.textSecondary,
+                      color: _cMuted,
                     ),
                     border: InputBorder.none,
                     isDense: true,
@@ -1076,11 +1315,11 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
               icon: Icon(
                 _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
               ),
-              color: _listening ? AppColors.periodRed : AppColors.textSecondary,
+              color: _listening ? _cClay : _cMuted,
               iconSize: 20,
               tooltip: _speechAvailable
-                  ? (_listening ? 'Stop recording' : 'Voice message')
-                  : 'Voice input not supported in this browser',
+                  ? (_listening ? tr('Stop recording') : tr('Voice message'))
+                  : tr('Voice input not available in this browser'),
             ),
             _sending
                 ? const SizedBox(
@@ -1097,11 +1336,227 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                     color: Colors.white,
                     iconSize: 18,
                     style: IconButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: _cClay,
                       shape: const CircleBorder(),
                       padding: const EdgeInsets.all(8),
                     ),
                   ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Claude-style "thinking" indicator: three softly pulsing terracotta dots.
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            // Stagger: dot i peaks slightly after the previous one.
+            final t = (_controller.value - i * 0.22) % 1.0;
+            final up = Curves.easeOutCubic.transform(t.clamp(0.0, 1.0));
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Transform.scale(
+                scale: 0.8 + 0.35 * up,
+                child: Opacity(
+                  opacity: (0.35 + 0.6 * up).clamp(0.0, 1.0),
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: _cClay,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+
+/// Bottom sheet holding the two AI privacy toggles -- the same settings
+/// stored in the profile's privacySettings (canonical edit home is
+/// Settings > Data & Privacy). Surfaced in the AI chat header because
+/// that's where their effect is instantly visible: with memory off, the
+/// next message sends no history; with diary access off, journal text is
+/// excluded from the assistant's context.
+class _PrivacySheet extends StatefulWidget {
+  const _PrivacySheet({
+    required this.initialProfile,
+    required this.service,
+    required this.onProfileUpdated,
+  });
+
+  final HealthProfile initialProfile;
+  final HealthProfileService service;
+  final ValueChanged<HealthProfile> onProfileUpdated;
+
+  @override
+  State<_PrivacySheet> createState() => _PrivacySheetState();
+}
+
+class _PrivacySheetState extends State<_PrivacySheet> {
+  late HealthProfile _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _profile = widget.initialProfile;
+  }
+
+  Future<void> _toggle({
+    required String field,
+    required bool value,
+  }) async {
+    final updated = await widget.service.updateProfile(
+      (p) => p.copyWith(
+        privacySettings: p.privacySettings.copyWith(
+          aiCanAccessDiary: field == 'diary' ? value : null,
+          aiMemoryEnabled: field == 'memory' ? value : null,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _profile = updated);
+    widget.onProfileUpdated(updated);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = _profile.privacySettings;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'AI privacy',
+              style: AppTextStyles.sans(size: 16, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Choose what Saheli AI is allowed to do during check-ins.',
+              style: AppTextStyles.sans(
+                size: 12.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('📖', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI can read my diary',
+                        style: AppTextStyles.sans(
+                          size: 13,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Off: Saheli won\'t reference your journal entries '
+                        'in replies.',
+                        style: AppTextStyles.sans(
+                          size: 11,
+                          color: AppColors.textSecondary,
+                        ).copyWith(height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Switch(
+                  value: settings.aiCanAccessDiary,
+                  activeThumbColor: AppColors.primary,
+                  onChanged: (v) => _toggle(field: 'diary', value: v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('🧠', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI remembers past conversations',
+                        style: AppTextStyles.sans(
+                          size: 13,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Off: every message is sent with no chat history, '
+                        'even within this session.',
+                        style: AppTextStyles.sans(
+                          size: 11,
+                          color: AppColors.textSecondary,
+                        ).copyWith(height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Switch(
+                  value: settings.aiMemoryEnabled,
+                  activeThumbColor: AppColors.primary,
+                  onChanged: (v) => _toggle(field: 'memory', value: v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'These same controls also live in Settings > Data & Privacy, '
+              'along with "Clear AI memory" and "Delete diary entries".',
+              style: AppTextStyles.sans(
+                size: 11,
+                color: AppColors.textSecondary,
+              ).copyWith(height: 1.4),
+            ),
           ],
         ),
       ),

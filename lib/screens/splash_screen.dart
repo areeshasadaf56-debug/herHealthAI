@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart' hide Text;
-import '../l10n/app_text.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/cycle_provider.dart';
@@ -45,7 +44,11 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    final destination = cycle.isLoggedIn
+    // Only skip Sign In when there is BOTH a logged-in flag and a usable,
+    // unexpired token. A flag without a token (e.g. saved by an older
+    // version, or after the token expired) would otherwise let you in and
+    // then fail with "Please sign in to use AI Check-in."
+    final destination = (cycle.isLoggedIn && cycle.hasValidSession)
         ? const HomeShell()
         : const SignInScreen();
 

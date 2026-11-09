@@ -3,7 +3,7 @@ import '../l10n/app_text.dart';
 import 'package:provider/provider.dart';
 import '../providers/cycle_provider.dart';
 import '../theme/app_theme.dart';
-import 'home_shell.dart';
+import 'verify_email_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -75,9 +75,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    // Account created but NOT signed in: email verification comes first.
+    // The verify screen requests the 6-digit code itself; on success it
+    // lands on Home exactly like a sign-in. The whole stack is replaced
+    // so "back" can't return to a half-created sign-up form.
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const HomeShell()),
+      MaterialPageRoute(builder: (context) => VerifyEmailScreen(email: email)),
       (route) => false,
     );
   }

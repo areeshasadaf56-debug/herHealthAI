@@ -4,6 +4,52 @@
 // Urdu speaker / clinician before release.)
 
 const Map<String, String> _ur = {
+  // -- Wellbeing AI check-in (Claude-style screen) --
+  // NOTE: keys for strings that already exist elsewhere in this map
+  // ('No past chats yet.', 'Attach a photo or document', 'Listening…',
+  // 'Voice message', 'Stop recording', 'Befrienders Worldwide…') are NOT
+  // repeated here -- const maps forbid duplicate keys.
+  'Saheli is thinking…': 'صحت ساتھی سوچ رہی ہے…',
+  'Your check-in companion': 'آپ کی چیک اِن ساتھی',
+  'Take me to': 'مجھے لے جائیں',
+  'Dismiss': 'بند کریں',
+  'How have I been feeling this week?':
+      'مجھے ہر ہفتے میں کیسا محسوس ہوتا ہے؟',
+  'A quick check-in on my sleep and stress':
+      'نیند اور ذہنی دباؤ پر فوری چیک اِن',
+  'I want to journal about today': 'آج کے بارے میں ڈائری لکھنا چاہتی ہوں',
+
+  // -- Diary: today's page + day headers + refresh feedback --
+  "Today's Diary": 'آج کی ڈائری',
+  'Write': 'لکھیں',
+  'Nothing written yet today': 'آج اِس وقت کچھ نہیں لکھا گیا',
+  '1 story written today': 'آج ایک واقعہ لکھا گیا',
+  'Diary updated from your account': 'ڈائری آپ کے اکاؤنٹ سے تازہ کاری ہو گئی',
+  "You're all caught up": 'آپ بالکل اپ ٹو ڈیٹ ہیں',
+  "Couldn't reach the server -- showing what's saved on this device":
+      'سرور سے رابطہ نہیں ہو سکا — اِس ڈیوائس پر محفوظ ڈیٹا دکھایا جا رہا ہے',
+
+  // -- Endo symptom checker (Detection tab) --
+  // ('Symptom Checker' and 'Score' already exist earlier in the map.)
+  'See my results': 'میرا نتیجہ دیکھیں',
+  'Answer all 10 questions to see your result': 'نتیجہ دیکھنے کے لیے تمام 10 سوالات کا جواب دیں',
+  'Worth discussing with a doctor': 'ڈاکٹر سے بات کرنے کے قابل',
+  'Some signs — keep tracking': 'کچھ علامات — مسلسل نگرانی کریں',
+  'Few typical signs right now': 'اِس وقت کوئی خاص علامت نہیں',
+  'Save to my diary': 'میری ڈائری میں محفوظ کریں',
+  'Retake check': 'دوبارہ چیک کریں',
+  'Tips for your appointment': 'ڈاکٹر کی ملاقات کے لیے مشورے',
+  'WHAT YOU REPORTED': 'آپ نے جو بتایا',
+  'WHAT TO ASK YOUR DOCTOR': 'ڈاکٹر سے کیا پوچھیں',
+  'This checker is educational — it cannot confirm or rule out endometriosis.':
+      'یہ چیکر صرف معلوماتی ہے — یہ اینڈومیٹریوسس کی تصدیق یا نفی نہیں کر سکتا۔',
+  'Describe where and when the pain hits — especially if it shows up around your period.':
+      'بتائیں کہ درد کہاں اور کب لگتا ہے — خاص طور پر اگر یہ ماہواری کے قریب لگے۔',
+  'Ask whether a pelvic ultrasound or a gynaecologist referral makes sense for you.':
+      'پوچھیں کہ کیا آپ کے لیے پیڑتانی الٹراساؤنڈ یا ماہر نسواں کے پاس بھیجنا درست ہے۔',
+  'Ask which pain-relief or hormonal options are safe for your situation.':
+      'پوچھیں کہ کون سے درد کم کرنے یا ہارمونل آپشنز آپ کی حالت کے لیے محفوظ ہیں۔',
+
   'Cycle': 'سائیکل',
   'Ovu': 'بیضہ',
   'Protection': 'تحفظ',
@@ -883,6 +929,10 @@ final List<(RegExp, String Function(Match))> _patterns = [
     (m) => '${m[2]} میں سے ${m[1]} طریقے "استعمال کے لیے محفوظ" قرار پائے',
   ),
   (RegExp(r'^Model used: (.+)$'), (m) => 'استعمال شدہ ماڈل: ${m[1]}'),
+  (
+    RegExp(r'^(\d+) stories written today$'),
+    (m) => 'آج ${m[1]} واقعے لکھے گئے',
+  ),
 ];
 
 /// Returns the Urdu version of [s], or [s] unchanged if there is none yet.

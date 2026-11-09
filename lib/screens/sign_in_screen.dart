@@ -5,6 +5,8 @@ import '../providers/cycle_provider.dart';
 import '../theme/app_theme.dart';
 import 'sign_up_screen.dart';
 import 'home_shell.dart';
+import 'forgot_password_screen.dart';
+import 'verify_email_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -51,10 +53,21 @@ class _SignInScreenState extends State<SignInScreen> {
     if (!mounted) return;
 
     if (error != null) {
-      setState(() {
-        _errorText = error;
-        _isSubmitting = false;
-      });
+      // 403 needs_verification: correct email+password, but the account's
+      // email was never verified. Route to the code screen -- confirming
+      // the code signs the user straight in.
+      final pendingEmail = cycle.emailNeedingVerification;
+      setState(() => _isSubmitting = false);
+      if (pendingEmail != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerifyEmailScreen(email: pendingEmail),
+          ),
+        );
+        return;
+      }
+      setState(() => _errorText = error);
       return;
     }
 
@@ -169,7 +182,18 @@ class _SignInScreenState extends State<SignInScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    // Opens the 2-step reset: the user enters their
+                    // email, receives a 6-digit code, and only then can
+                    // set the new password (previously this button did
+                    // nothing).
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ForgotPasswordScreen(),
+                      ),
+                    );
+                  },
                   child: Text(
                     'Forgot password?',
                     style: AppTextStyles.sans(

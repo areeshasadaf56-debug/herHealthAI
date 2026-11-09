@@ -1,12 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cycle_provider.dart';
 import '../theme/app_theme.dart';
 
-/// Reached from Sign In's "Forgot password?" link. Uses the existing
-/// server-side /reset_password endpoint (already wired up in
-/// CycleProvider.resetPassword) -- this screen was the missing piece,
-/// since Sign In's button previously had an empty onPressed.
+/// Reached from Sign In's "Forgot password?" link -- a 2-step reset:
+///
+///   Step 1: the user enters their email and a 6-digit code is emailed
+///           out (proving they own the address).
+///   Step 2: they enter the code + the new password here, and the server
+///           only applies the change once the code checks out. (The old
+///           one-screen version just accepted {email, new_password},
+///           which would have let anyone reset anybody's password.)
+///
+/// DEV MODE: with no SMTP configured on the server, the code is returned
+/// directly and displayed in a highlighted chip instead of being emailed.
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -16,32 +25,87 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
+  final _codeController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmController = TextEditingController();
-  bool _obscurePassword = true;
+
+  int _step = 0; // 0 = email, 1 = code + new password
+  String? _devCode;
   bool _isSubmitting = false;
   bool _isDone = false;
+  bool _obscurePassword = true;
   String? _errorText;
+  int _resendIn = 0;
+  Timer? _resendTimer;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _codeController.dispose();
     _newPasswordController.dispose();
     _confirmController.dispose();
+    _resendTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _handleReset() async {
-    final email = _emailController.text.trim();
-    final newPassword = _newPasswordController.text;
-    final confirm = _confirmController.text;
+  void _startCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendIn = 60);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final next = _resendIn - 1;
+      setState(() => _resendIn = next <= 0 ? 0 : next);
+      if (next <= 0) timer.cancel();
+    });
+  }
 
-    if (email.isEmpty || newPassword.isEmpty || confirm.isEmpty) {
-      setState(() => _errorText = 'Please fill in all fields.');
+  Future<void> _handleSendCode() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() => _errorText = 'Please enter your email.');
       return;
     }
     if (!email.contains('@')) {
       setState(() => _errorText = 'Please enter a valid email address.');
+      return;
+    }
+
+    setState(() {
+      _errorText = null;
+      _isSubmitting = true;
+    });
+
+    // Same generic result whether or not the email is registered -- no
+    // account enumeration from this screen. If nothing arrives, the user
+    // checks their inbox/spam and can resend after the cooldown.
+    final result = await context
+        .read<CycleProvider>()
+        .requestVerificationCode(email: email, purpose: 'reset');
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSubmitting = false;
+      _devCode = result.devCode;
+      if (result.error != null) {
+        _errorText = result.error;
+      } else {
+        _step = 1;
+        _startCooldown();
+      }
+    });
+  }
+
+  Future<void> _handleReset() async {
+    final code = _codeController.text.trim();
+    final newPassword = _newPasswordController.text;
+    final confirm = _confirmController.text;
+
+    if (code.isEmpty || newPassword.isEmpty || confirm.isEmpty) {
+      setState(() => _errorText = 'Please fill in all fields.');
       return;
     }
     if (newPassword.length < 6) {
@@ -59,9 +123,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
 
     final error = await context.read<CycleProvider>().resetPassword(
-      email: email,
-      newPassword: newPassword,
-    );
+          email: _emailController.text.trim(),
+          code: code,
+          newPassword: newPassword,
+        );
 
     if (!mounted) return;
 
@@ -81,6 +146,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final emailText = _emailController.text.trim();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -112,11 +179,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               Text(
                 _isDone
                     ? 'Your password has been updated.'
-                    : 'Enter your email and choose a new password.',
+                    : _step == 0
+                        ? "We'll email you a 6-digit code to prove this is "
+                            'your account. Then you choose the new password.'
+                        : 'Enter the code we sent to $emailText and choose a '
+                            'new password.',
                 style: AppTextStyles.sans(
                   size: 13,
                   color: AppColors.textSecondary,
-                ),
+                ).copyWith(height: 1.4),
               ),
               const SizedBox(height: 32),
               if (_isDone) ...[
@@ -142,7 +213,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   ),
                 ),
-              ] else ...[
+              ] else if (_step == 0) ...[
                 Text(
                   'Email',
                   style: AppTextStyles.sans(size: 12, weight: FontWeight.w600),
@@ -152,6 +223,52 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   controller: _emailController,
                   hint: 'you@example.com',
                   keyboardType: TextInputType.emailAddress,
+                ),
+                if (_errorText != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _errorText!,
+                    style: AppTextStyles.sans(
+                      size: 12,
+                      color: AppColors.periodRed,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 28),
+                _submitButton(label: 'Send Code', onPressed: _handleSendCode),
+              ] else ...[
+                if (_devCode != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.moodYellow.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.moodYellow.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Text(
+                      'DEV MODE: this server has no email configured, so '
+                      'your code is $_devCode (normally this arrives in '
+                      'your email inbox).',
+                      style: AppTextStyles.sans(
+                        size: 12,
+                        color: AppColors.textPrimary,
+                      ).copyWith(height: 1.4),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Text(
+                  '6-digit code',
+                  style: AppTextStyles.sans(size: 12, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _codeController,
+                  hint: 'From your email',
+                  keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 18),
                 Text(
@@ -197,41 +314,65 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                 ],
                 const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                _submitButton(label: 'Reset Password', onPressed: _handleReset),
+                const SizedBox(height: 12),
+                Center(
+                  child: TextButton(
+                    onPressed: (_resendIn > 0 || _isSubmitting)
+                        ? null
+                        : _handleSendCode,
+                    child: Text(
+                      _resendIn > 0
+                          ? 'Resend code ($_resendIn s)'
+                          : 'Didn\'t get it? Send a new code',
+                      style: AppTextStyles.sans(
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: _resendIn > 0
+                            ? AppColors.textSecondary
+                            : AppColors.primary,
                       ),
                     ),
-                    onPressed: _isSubmitting ? null : _handleReset,
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            'Reset Password',
-                            style: AppTextStyles.sans(
-                              size: 14,
-                              weight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
                   ),
                 ),
               ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _submitButton({required String label, required VoidCallback onPressed}) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        onPressed: _isSubmitting ? null : onPressed,
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                label,
+                style: AppTextStyles.sans(
+                  size: 14,
+                  weight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
       ),
     );
   }

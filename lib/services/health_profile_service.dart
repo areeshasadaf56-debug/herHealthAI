@@ -15,6 +15,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart'; // ValueNotifier (sync signal)
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
@@ -88,6 +89,18 @@ class HealthProfileService {
         '${hex.substring(16, 20)}-${hex.substring(20, 32)}';
   }
 
+  /// Fired whenever a server sync (background or explicit refresh)
+  /// adopts a newer profile than the one in the local cache. Open
+  /// screens listen and redraw -- previously the background sync
+  /// silently updated an in-memory cache no screen ever re-read, which
+  /// is why the Diary's refresh button looked completely dead.
+  final ValueNotifier<HealthProfile?> profileUpdated =
+      ValueNotifier<HealthProfile?>(null);
+
+  /// True when the most recent [loadProfile] call reached the backend
+  /// successfully (only meaningful when forceServer is true).
+  bool lastServerSyncReached = false;
+
   /// Loads the profile: LOCAL CACHE FIRST, backend as a background sync.
   ///
   /// This used to check the backend first and fall back to local cache
@@ -107,10 +120,42 @@ class HealthProfileService {
   /// device -- and even then, it's only adopted if it's actually newer
   /// than what's already local (compared via lastUpdated), so a stale
   /// backend record can never clobber a fresher local one.
-  Future<HealthProfile> loadProfile() async {
+  ///
+  /// [forceServer] is for EXPLICIT user refresh actions (the Diary's
+  /// refresh button / pull-to-refresh): the backend GET is awaited
+  /// before returning, a newer server copy is adopted (and announced
+  /// via [profileUpdated]) synchronously, and [lastServerSyncReached]
+  /// tells the caller whether the server answered at all -- so the UI
+  /// can show honest feedback instead of a spinner that changes nothing
+  /// visible.
+  Future<HealthProfile> loadProfile({bool forceServer = false}) async {
     final userId = await _effectiveUserId();
 
     final local = await _loadFromCache(userId);
+
+    if (forceServer) {
+      final remote = await _fetchFromBackend(userId);
+      lastServerSyncReached = remote != null;
+
+      if (local == null || (remote?.lastUpdated.isAfter(local.lastUpdated) ?? false)) {
+        final adopted = remote;
+        if (adopted != null) {
+          await _cacheLocally(userId, adopted);
+          _cachedProfile = adopted;
+          profileUpdated.value = adopted;
+          return adopted;
+        }
+      }
+
+      if (local != null) {
+        _cachedProfile = local;
+        return local;
+      }
+      // Backend unreachable and nothing cached: fall through to blank.
+      final blank = HealthProfile.empty(userId);
+      _cachedProfile = blank;
+      return blank;
+    }
 
     // Fire-and-forget: sync from backend if it turns out to be newer.
     // Intentionally not awaited -- the UI should never block on this,
@@ -125,23 +170,11 @@ class HealthProfileService {
     // No local cache at all (first-ever launch on this device) -- in
     // this one case it's worth waiting on the network, since there's
     // nothing better to show yet.
-    try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/profile/$userId');
-      final headers = await _authHeaders();
-      final response = await http
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final profile = HealthProfile.fromJson(json);
-        await _cacheLocally(userId, profile);
-        _cachedProfile = profile;
-        return profile;
-      }
-    } catch (_) {
-      // Network unavailable / server down / not authenticated yet --
-      // fall through to a blank profile below.
+    final fetched = await _fetchFromBackend(userId);
+    if (fetched != null) {
+      await _cacheLocally(userId, fetched);
+      _cachedProfile = fetched;
+      return fetched;
     }
 
     final blank = HealthProfile.empty(userId);
@@ -149,32 +182,41 @@ class HealthProfileService {
     return blank;
   }
 
-  /// Background helper for loadProfile(): fetches the backend copy and
-  /// only adopts it (overwriting local cache + in-memory cache) if it
-  /// is strictly newer than what's already local. This is what makes
-  /// cross-device sync safe without risking data loss on this device.
-  Future<void> _refreshFromBackendIfNewer(
-    String userId,
-    HealthProfile? local,
-  ) async {
+  /// Goes to the backend for the current profile. Returns null on any
+  /// failure (not signed in, server down, timeout, bad payload).
+  Future<HealthProfile?> _fetchFromBackend(String userId) async {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/profile/$userId');
       final headers = await _authHeaders();
       final response = await http
           .get(uri, headers: headers)
           .timeout(const Duration(seconds: 8));
-      if (response.statusCode != 200) return;
+      if (response.statusCode != 200) return null;
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final remote = HealthProfile.fromJson(json);
-
-      if (local == null || remote.lastUpdated.isAfter(local.lastUpdated)) {
-        await _cacheLocally(userId, remote);
-        _cachedProfile = remote;
-      }
+      return HealthProfile.fromJson(json);
     } catch (_) {
-      // Best-effort background sync -- any failure here is silent and
-      // harmless, since the local copy is already what's showing.
+      return null;
+    }
+  }
+
+  /// Background helper for loadProfile(): fetches the backend copy and
+  /// only adopts it (overwriting local cache + in-memory cache) if it
+  /// is strictly newer than what's already local. This is what makes
+  /// cross-device sync safe without risking data loss on this device.
+  /// On adoption it announces the new profile through [profileUpdated]
+  /// so any open screen can re-render with the fresh data.
+  Future<void> _refreshFromBackendIfNewer(
+    String userId,
+    HealthProfile? local,
+  ) async {
+    final remote = await _fetchFromBackend(userId);
+    if (remote == null) return;
+
+    if (local == null || remote.lastUpdated.isAfter(local.lastUpdated)) {
+      await _cacheLocally(userId, remote);
+      _cachedProfile = remote;
+      profileUpdated.value = remote;
     }
   }
 
@@ -282,6 +324,74 @@ class HealthProfileService {
             ),
           );
       return p.copyWith(eligibilityHistory: updatedHistory);
+    });
+  }
+
+  // ---- Per-entry removal (delete buttons in the Health Diary timeline) ----
+  //
+  // Each takes the index of the entry within the SAME profile list the
+  // timeline was built from (the diary screen builds entries with the
+  // matching list index attached, then calls back in here). Splicing +
+  // saving keeps the deletion consistent across the timeline, the Profile
+  // tab stats, and the backend sync (saveProfile pushes the shorter
+  // lists server-side, so a background re-sync can't resurrect them).
+
+  /// Removes one saved PCOS check result from history.
+  Future<HealthProfile> removePcosCheckAt(int index) {
+    return updateProfile((p) {
+      if (index < 0 || index >= p.pcosHistory.length) return p;
+      final updated = List<PcosCheckResult>.from(p.pcosHistory)
+        ..removeAt(index);
+      return p.copyWith(pcosHistory: updated);
+    });
+  }
+
+  /// Removes one logged contraception entry. "Current method" (shown in
+  /// the Profile summary and used as AI context) is kept consistent with
+  /// whatever history remains: the most recent surviving entry, or none.
+  Future<HealthProfile> removeContraceptionAt(int index) {
+    return updateProfile((p) {
+      final history = p.reproductiveHistory.contraceptionHistory;
+      if (index < 0 || index >= history.length) return p;
+      final updated = List<ContraceptionLogEntry>.from(history)
+        ..removeAt(index);
+      return p.copyWith(
+        reproductiveHistory: p.reproductiveHistory.copyWith(
+          contraceptionHistory: updated,
+          currentContraceptionMethod:
+              updated.isNotEmpty ? updated.last.method : null,
+        ),
+      );
+    });
+  }
+
+  /// Removes one saved eligibility check.
+  Future<HealthProfile> removeEligibilityCheckAt(int index) {
+    return updateProfile((p) {
+      if (index < 0 || index >= p.eligibilityHistory.length) return p;
+      final updated =
+          List<EligibilityCheckResult>.from(p.eligibilityHistory)
+            ..removeAt(index);
+      return p.copyWith(eligibilityHistory: updated);
+    });
+  }
+
+  /// Removes one saved AI conversation turn.
+  Future<HealthProfile> removeConversationAt(int index) {
+    return updateProfile((p) {
+      if (index < 0 || index >= p.conversationLog.length) return p;
+      final updated =
+          List<ConversationEntry>.from(p.conversationLog)..removeAt(index);
+      return p.copyWith(conversationLog: updated);
+    });
+  }
+
+  /// Removes one free-text journal entry the user wrote.
+  Future<HealthProfile> removeDiaryEntryAt(int index) {
+    return updateProfile((p) {
+      if (index < 0 || index >= p.diaryEntries.length) return p;
+      final updated = List<DiaryEntry>.from(p.diaryEntries)..removeAt(index);
+      return p.copyWith(diaryEntries: updated);
     });
   }
 

@@ -7,7 +7,14 @@
 class ApiConfig {
   // --- LIVE BACKEND (PythonAnywhere) ---
   // This is what the app currently points at.
-  static const String baseUrl = 'https://areeshasadaf56.pythonanywhere.com';
+  //
+  // Override at build time without editing code, e.g. for a production
+  // server later:
+  //   flutter build appbundle --dart-define=API_BASE_URL=https://api.yourdomain.com
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://areeshasadaf56.pythonanywhere.com',
+  );
 
   // --- LOCAL DEV ALTERNATIVES ---
   // Uncomment one of these instead of the line above if you're running

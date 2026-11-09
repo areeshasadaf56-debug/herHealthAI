@@ -2,78 +2,85 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'language_provider.dart';
 
-/// Small floating EN | اردو switch shown on every screen.
-/// Drag it anywhere if it is covering something; tap to switch language.
-class LanguageFab extends StatefulWidget {
+/// A fixed "EN | اردو" pill pinned to the top-right of EVERY screen.
+///
+/// Tapping it flips the whole app between English and Urdu: layouts
+/// mirror right-to-left, material widgets localize, and every screen's
+/// Text re-translates via the shared translation dictionary. The chat
+/// language stays in sync (LanguageProvider writes the same preference
+/// the AI screen used to manage itself).
+///
+/// Fixed position on purpose: the previous version was draggable, and a
+/// language switch that can wander around (and can be dropped anywhere,
+/// including out of sight) is worse than one that's always where you
+/// expect it.
+class LanguageFab extends StatelessWidget {
   const LanguageFab({super.key});
-
-  @override
-  State<LanguageFab> createState() => _LanguageFabState();
-}
-
-class _LanguageFabState extends State<LanguageFab> {
-  Offset? _pos;
-  static const double _w = 92;
-  static const double _h = 36;
 
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
-    final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
 
-    _pos ??= Offset(size.width - _w - 10, size.height * 0.38);
-    final left = _pos!.dx.clamp(6.0, size.width - _w - 6);
-    final top = _pos!.dy.clamp(pad.top + 6, size.height - _h - pad.bottom - 70);
-
     return Positioned(
-      left: left,
-      top: top,
-      child: GestureDetector(
-        onPanUpdate: (d) => setState(() => _pos = Offset(left, top) + d.delta),
-        onTap: () => lang.toggle(),
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: _w,
-            height: _h,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFF1D3DF)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF912260).withValues(alpha: 0.18),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [_half('EN', !lang.isUrdu), _half('اردو', lang.isUrdu)],
-            ),
+      top: pad.top + 6,
+      right: 12,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          height: 30,
+          padding: const EdgeInsets.all(2.5),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.97),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFF1D3DF)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF912260).withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _side(context, 'EN', !lang.isUrdu),
+              _side(context, 'اردو', lang.isUrdu),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _half(String label, bool active) {
-    return Expanded(
-      child: Container(
-        alignment: Alignment.center,
+  Widget _side(BuildContext context, String label, bool active) {
+    final target = label == 'EN' ? 'en' : 'ur';
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        final lang = context.read<LanguageProvider>();
+        if (lang.code != target) lang.setLanguage(target);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 11),
         decoration: BoxDecoration(
           color: active ? const Color(0xFF912260) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(15),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: active ? Colors.white : const Color(0xFF7D4A65),
-            decoration: TextDecoration.none,
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: active ? Colors.white : const Color(0xFF7D4A65),
+              height: 1.0,
+              textBaseline: TextBaseline.alphabetic,
+              fontFamilyFallback: const ['Noto Naskh Arabic', 'sans-serif'],
+            ),
           ),
         ),
       ),

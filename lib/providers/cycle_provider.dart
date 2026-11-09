@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/cycle_data.dart';
 import '../models/daily_log.dart';
+import '../config/api_config.dart';
+import '../services/secure_store.dart';
 
 class CycleProvider extends ChangeNotifier {
   CycleData _cycleData = CycleData(
@@ -20,12 +22,16 @@ class CycleProvider extends ChangeNotifier {
   String? _authToken;
   DateTime? _tokenExpiresAt;
 
+  /// Set when /signin returns 403 needs_verification: the credentials
+  /// were correct but the account's email hasn't been verified yet. The
+  /// sign-in screen reads this to route to the verification-code screen.
+  String? _emailNeedingVerification;
+
   // Accounts now live on the backend server (see /signup, /signin,
   // /reset_password) so they survive app reinstalls and work across
   // devices. Only the "remember me" flag + name are cached locally
   // below, purely so the splash screen can skip sign-in on relaunch.
-  static const String _authBaseUrl =
-      'https://areeshasadaf56.pythonanywhere.com';
+  static const String _authBaseUrl = ApiConfig.baseUrl;
 
   Map<String, DailyLog> _dailyLogs = {};
 
@@ -48,6 +54,10 @@ class CycleProvider extends ChangeNotifier {
   String get userName => _userName;
   String? get userId => _userId;
   String? get authToken => _authToken;
+
+  /// The email a fresh verification code should be sent to, set only
+  /// right after a legitimate 403 needs_verification sign-in attempt.
+  String? get emailNeedingVerification => _emailNeedingVerification;
 
   /// True once we have a token that isn't (as far as we know) expired
   /// yet. Callers that hit authenticated endpoints should check this
@@ -108,11 +118,15 @@ class CycleProvider extends ChangeNotifier {
     _remindersEnabled = prefs.getBool('remindersEnabled') ?? true;
 
     // Restore auth/profile state so a returning user skips sign-in.
+    // The token, user id, and expiry are secrets, so they live in
+    // SecureStore (Android Keystore / iOS Keychain), not plain
+    // SharedPreferences. SecureStore also migrates any legacy
+    // plain-text copies written by older app versions.
     _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     _userName = prefs.getString('userName') ?? '';
-    _userId = prefs.getString('authUserId');
-    _authToken = prefs.getString('authToken');
-    final expiresMillis = prefs.getInt('authTokenExpiresAt');
+    _userId = await SecureStore.read(SecureStore.userIdKey);
+    _authToken = await SecureStore.read(SecureStore.tokenKey);
+    final expiresMillis = await SecureStore.readExpiryMillis();
     _tokenExpiresAt = expiresMillis != null
         ? DateTime.fromMillisecondsSinceEpoch(expiresMillis)
         : null;
@@ -124,13 +138,11 @@ class CycleProvider extends ChangeNotifier {
       _authToken = null;
       _userId = null;
       _tokenExpiresAt = null;
+      await SecureStore.clearSession();
     }
 
-    // "Logged in" without a valid session token (old install, expired
-    // token, cleared storage) would skip the sign-in screen but make
-    // every authenticated call -- AI Check-in included -- fail with
-    // "Please sign in". Treat it as signed out so the user is sent to
-    // sign in again and gets a fresh token.
+    // "Logged in" must mean "has a usable session". Otherwise Splash
+    // would route to Home while authenticated calls fail with 401.
     if (_isLoggedIn && !hasValidSession) {
       _isLoggedIn = false;
       await prefs.setBool('isLoggedIn', false);
@@ -162,19 +174,25 @@ class CycleProvider extends ChangeNotifier {
     if (userId != null) _userId = userId;
     if (token != null) _authToken = token;
     if (tokenExpiresAt != null) _tokenExpiresAt = tokenExpiresAt;
+    _emailNeedingVerification = null; // only ever set by a failed-at-verify sign-in
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', true);
     await prefs.setString('userName', name);
-    if (userId != null) await prefs.setString('authUserId', userId);
-    if (token != null) await prefs.setString('authToken', token);
+    // Secrets go to encrypted storage, never plain SharedPreferences.
+    if (userId != null) await SecureStore.write(SecureStore.userIdKey, userId);
+    if (token != null) await SecureStore.write(SecureStore.tokenKey, token);
     if (tokenExpiresAt != null) {
-      await prefs.setInt(
-        'authTokenExpiresAt',
-        tokenExpiresAt.millisecondsSinceEpoch,
+      await SecureStore.write(
+        SecureStore.expiresKey,
+        tokenExpiresAt.millisecondsSinceEpoch.toString(),
       );
     }
+    // Drop any legacy plain-text copies left by older versions.
+    await prefs.remove('authUserId');
+    await prefs.remove('authToken');
+    await prefs.remove('authTokenExpiresAt');
   }
 
   String _normalizeEmail(String email) => email.trim().toLowerCase();
@@ -204,10 +222,6 @@ class CycleProvider extends ChangeNotifier {
 
       if (response.statusCode != 200) {
         return body['detail'] ?? 'Something went wrong. Please try again.';
-      }
-
-      if (body['token'] == null) {
-        return 'Signed in, but the server did not return a session token. Please contact support.';
       }
 
       await login(
@@ -245,12 +259,16 @@ class CycleProvider extends ChangeNotifier {
 
       final body = jsonDecode(response.body);
 
-      if (response.statusCode != 200) {
-        return body['detail'] ?? 'Something went wrong. Please try again.';
+      // 403 + needs_verification: credentials are correct but the email
+      // was never verified. Stash the email so the sign-in screen can
+      // route to the verification-code screen instead of Home.
+      if (response.statusCode == 403 && body['needs_verification'] == true) {
+        _emailNeedingVerification = _normalizeEmail(email);
+        return body['detail'] ?? 'Please verify your email first.';
       }
 
-      if (body['token'] == null) {
-        return 'Signed in, but the server did not return a session token. Please contact support.';
+      if (response.statusCode != 200) {
+        return body['detail'] ?? 'Something went wrong. Please try again.';
       }
 
       await login(
@@ -268,10 +286,106 @@ class CycleProvider extends ChangeNotifier {
     }
   }
 
-  /// Resets the password for an existing account on the server. Returns
-  /// null on success, or an error message string on failure.
+  /// Asks the server to email a 6-digit verification code. Used by the
+  /// verification screen after signup ('signup') and by the password
+  /// reset flow ('reset'). Returns (error, devCode): error is null on
+  /// success, and devCode is only ever non-null in LOCAL DEV when the
+  /// server has no SMTP credentials configured -- the code is shown on
+  /// screen and printed to the server console instead of emailed, so the
+  /// flow stays testable without a real inbox.
+  Future<({String? error, String? devCode})> requestVerificationCode({
+    required String email,
+    required String purpose, // 'signup' or 'reset'
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_authBaseUrl/verify_email/request'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': _normalizeEmail(email),
+              'purpose': purpose,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        return (
+          error: body['detail'] is String
+              ? body['detail'] as String
+              : 'Something went wrong. Please try again.',
+          devCode: null,
+        );
+      }
+      return (
+        error: null,
+        devCode:
+            body['dev_code'] is String ? body['dev_code'] as String : null,
+      );
+    } catch (e) {
+      debugPrint('requestVerificationCode error: $e');
+      return (
+        error:
+            'Could not reach the server. Please check your internet connection and try again.',
+        devCode: null,
+      );
+    }
+  }
+
+  /// Confirms a 6-digit code. For purpose 'signup' the server marks the
+  /// email verified and returns the account's first session token, so a
+  /// successful confirm immediately signs the user in. Returns null on
+  /// success, or an error message on failure.
+  Future<String?> confirmVerificationCode({
+    required String email,
+    required String purpose, // 'signup' or 'reset'
+    required String code,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_authBaseUrl/verify_email/confirm'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': _normalizeEmail(email),
+              'purpose': purpose,
+              'code': code.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        return body['detail'] ?? 'That code is invalid. Please try again.';
+      }
+
+      if (purpose == 'signup') {
+        _emailNeedingVerification = null;
+        await login(
+          body['name'] ?? '',
+          userId: body['user_id']?.toString(),
+          token: body['token'] as String?,
+          tokenExpiresAt: body['expires_at'] != null
+              ? DateTime.tryParse(body['expires_at'] as String)
+              : null,
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint('confirmVerificationCode error: $e');
+      return 'Could not reach the server. Please check your internet connection and try again.';
+    }
+  }
+
+  /// Sets a new password for an existing account -- but ONLY after the
+  /// emailed 6-digit code proves the caller controls that email. Request
+  /// the code first via requestVerificationCode(purpose: 'reset'), then
+  /// call this with the code from the email. Returns null on success, or
+  /// an error message on failure.
   Future<String?> resetPassword({
     required String email,
+    required String code,
     required String newPassword,
   }) async {
     try {
@@ -281,6 +395,7 @@ class CycleProvider extends ChangeNotifier {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'email': _normalizeEmail(email),
+              'code': code.trim(),
               'new_password': newPassword,
             }),
           )
@@ -297,6 +412,22 @@ class CycleProvider extends ChangeNotifier {
     }
   }
 
+  /// Drops the local session (flag + token) without contacting the server.
+  /// Used when the app already knows the session is unusable (no token,
+  /// expired, or rejected with a 401) so the user can sign in again cleanly.
+  Future<void> clearSession() async {
+    _isLoggedIn = false;
+    _userId = null;
+    _authToken = null;
+    _tokenExpiresAt = null;
+    _emailNeedingVerification = null;
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', false);
+    await SecureStore.clearSession();
+  }
+
   /// Call from the Settings logout button. Clears the flag so Splash
   /// routes back to Sign In next launch, but keeps cycle/log data intact.
   /// Also best-effort invalidates the session token server-side and
@@ -308,13 +439,12 @@ class CycleProvider extends ChangeNotifier {
     _userId = null;
     _authToken = null;
     _tokenExpiresAt = null;
+    _emailNeedingVerification = null;
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', false);
-    await prefs.remove('authUserId');
-    await prefs.remove('authToken');
-    await prefs.remove('authTokenExpiresAt');
+    await SecureStore.clearSession();
 
     if (tokenToInvalidate != null) {
       try {
@@ -429,6 +559,47 @@ class CycleProvider extends ChangeNotifier {
     final existing = _dailyLogs[key] ?? DailyLog();
     existing.flowIntensity = intensity;
     _dailyLogs[key] = existing;
+    _saveDailyLogs();
+    notifyListeners();
+  }
+
+  /// Removes one logged field from a day (used by the Health Diary
+  /// timeline's per-entry delete button). `field` is exactly one of
+  /// 'period', 'mood', or 'symptoms'. Once a day's log ends up completely
+  /// empty it is dropped from the map entirely.
+  void clearCycleField(DateTime date, String field) {
+    final key = _keyFor(DateTime(date.year, date.month, date.day));
+    final existing = _dailyLogs[key];
+    if (existing == null) return;
+
+    switch (field) {
+      case 'period':
+        existing.isPeriodDay = false;
+        existing.flowIntensity = null;
+        // Clearing the period-day log on the currently selected period
+        // date also clears the selection (same as tapping the day again
+        // in the cycle calendar).
+        if (_selectedPeriodDate != null &&
+            _isSameDay(_selectedPeriodDate!, date)) {
+          _selectedPeriodDate = null;
+        }
+        break;
+      case 'mood':
+        existing.mood = null;
+        break;
+      case 'symptoms':
+        existing.symptoms = [];
+        break;
+    }
+
+    final isEmptyLog = existing.isPeriodDay != true &&
+        (existing.flowIntensity == null || existing.flowIntensity!.isEmpty) &&
+        (existing.mood == null || existing.mood!.isEmpty) &&
+        existing.symptoms.isEmpty;
+    if (isEmptyLog) {
+      _dailyLogs.remove(key);
+    }
+
     _saveDailyLogs();
     notifyListeners();
   }

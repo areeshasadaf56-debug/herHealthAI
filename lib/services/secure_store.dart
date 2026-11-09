@@ -12,9 +12,7 @@ class SecureStore {
   static const String userIdKey = 'authUserId';
   static const String expiresKey = 'authTokenExpiresAt';
 
-  static const FlutterSecureStorage _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
   static Future<String?> read(String key) async {
     try {
