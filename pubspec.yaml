@@ -77,6 +77,21 @@ flutter:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
+  # google_fonts base faces bundled locally (Fredoka + Nunito). The loader
+  # matches the EXACT variant filename it was asked for (e.g. it looks for
+  # "Fredoka-SemiBold.ttf" when a SemiBold style is used), so each variant
+  # the UI renders must exist under assets/fonts with that precise name.
+  # Bundling them means the app renders its type immediately on first
+  # launch -- even offline -- instead of waiting on a fonts.gstatic.com
+  # download, and tests never need the network for fonts.
+  assets:
+    - assets/fonts/Fredoka-Regular.ttf
+    - assets/fonts/Fredoka-SemiBold.ttf
+    - assets/fonts/Nunito-Regular.ttf
+    - assets/fonts/Nunito-Medium.ttf
+    - assets/fonts/Nunito-SemiBold.ttf
+    - assets/fonts/Nunito-Bold.ttf
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
