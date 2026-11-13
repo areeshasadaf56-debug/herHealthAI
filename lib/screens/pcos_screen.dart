@@ -1006,12 +1006,7 @@ class _PcosScreenState extends State<PcosScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Model used: ${result.modelUsed}',
-            style: AppTextStyles.sans(size: 11, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'This is a screening estimate, not a medical diagnosis. Please consult a doctor for confirmation.',
+            'This is just a screening test, not a medical diagnosis. Please contact a doctor for confirmation.',
             style: AppTextStyles.sans(
               size: 11,
               color: AppColors.textSecondary,

@@ -188,7 +188,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
           kind: _EntryKind.pcos,
           title: 'PCOS Check — ${r.prediction}',
           subtitle:
-              'Likelihood: ${(r.pcosProbability * 100).clamp(0, 100).toStringAsFixed(1)}% · ${r.modelUsed}',
+              'Likelihood: ${(r.pcosProbability * 100).clamp(0, 100).toStringAsFixed(1)}%',
           color: positive ? AppColors.periodRed : AppColors.ovulationTeal,
           emoji: '🧪',
           listIndex: i,

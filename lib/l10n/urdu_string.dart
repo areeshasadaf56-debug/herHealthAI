@@ -928,7 +928,6 @@ final List<(RegExp, String Function(Match))> _patterns = [
     RegExp(r'^(\d+) of (\d+) methods rated "safe to use"$'),
     (m) => '${m[2]} میں سے ${m[1]} طریقے "استعمال کے لیے محفوظ" قرار پائے',
   ),
-  (RegExp(r'^Model used: (.+)$'), (m) => 'استعمال شدہ ماڈل: ${m[1]}'),
   (
     RegExp(r'^(\d+) stories written today$'),
     (m) => 'آج ${m[1]} واقعے لکھے گئے',
