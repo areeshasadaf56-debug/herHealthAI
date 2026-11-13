@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/pcos_api_service.dart';
 import '../services/api_error.dart';
+import '../models/health_profile.dart';
 import '../services/health_profile_service.dart';
 import '../widgets/app_animations.dart';
 import '../widgets/pcos_comfort.dart'; // COMFORT_UI
@@ -1036,8 +1037,9 @@ class _PcosScreenState extends State<PcosScreen> {
   Future<void> _runDetection() async {
     setState(() => _isLoading = true);
 
+    PcosResult result;
     try {
-      final result = await PcosApiService.predict(
+      result = await PcosApiService.predict(
         ageYrs: double.parse(_ageController.text.trim()),
         weightKg: double.parse(_weightController.text.trim()),
         heightCm: double.parse(_heightController.text.trim()),
@@ -1062,47 +1064,8 @@ class _PcosScreenState extends State<PcosScreen> {
         fastFood: _fastFood ? 'Yes' : 'No',
         regularExercise: _regularExercise ? 'Yes' : 'No',
       );
-
-      setState(() {
-        _isLoading = false;
-        _result = result;
-      });
-
-      // Save into the diary/profile so history + future AI check-ins
-      // can reference it -- fire-and-forget, shouldn't block the result
-      // from showing.
-      final service = HealthProfileService();
-      service.appendPcosResult(
-        prediction: result.prediction,
-        pcosProbability: result.pcosProbability,
-        modelUsed: result.modelUsed,
-      );
-
-      // Persist the form inputs back to the profile so Demographics
-      // and ReproductiveHistory are no longer permanently "Not set".
-      service.updateProfile((p) {
-        final age = int.tryParse(_ageController.text.trim());
-        final weight = double.tryParse(_weightController.text.trim());
-        final height = double.tryParse(_heightController.text.trim());
-        final cycleLen = int.tryParse(_cycleLengthController.text.trim());
-
-        return p.copyWith(
-          demographics: p.demographics.copyWith(
-            ageYrs: age,
-            weightKg: weight,
-            heightCm: height,
-          ),
-          reproductiveHistory: p.reproductiveHistory.copyWith(
-            cycleRegularity: _cycleRegularity,
-            cycleLengthDays: cycleLen,
-          ),
-          lifestyle: p.lifestyle.copyWith(
-            regularExercise: _regularExercise,
-            fastFoodFrequent: _fastFood,
-          ),
-        );
-      });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorText = ApiError.friendly(
@@ -1110,7 +1073,87 @@ class _PcosScreenState extends State<PcosScreen> {
           orElse: 'Could not get a prediction. Please try again.',
         );
       });
+      return;
     }
+
+    // The prediction succeeded. Show it immediately -- the diary write
+    // below must not delay the answer the user is waiting for.
+    if (!mounted) {
+      // Navigated away while waiting: still record the check so the
+      // diary keeps the history, but never touch widget state.
+      try {
+        await _saveCheckToDiary(result);
+      } catch (_) {}
+      return;
+    }
+    setState(() {
+      _isLoading = false;
+      _result = result;
+    });
+
+    // Then persist in ONE awaited, atomic write: the PCOS check appended
+    // to the diary history AND the form inputs saved back to the
+    // profile. This used to be two separate fire-and-forget queue
+    // entries (appendPcosResult + updateProfile) -- two uploads, and
+    // failures neither of them ever surfaced.
+    try {
+      await _saveCheckToDiary(result);
+    } catch (e) {
+      if (!mounted) return;
+      // The prediction is on screen; losing only the diary record is a
+      // smaller problem, but the user should know it happened.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ApiError.friendly(
+              e,
+              orElse:
+                  'The check ran, but it could not be saved to your '
+                  'diary. Please try again shortly.',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// One atomic profile write: appends this check to the PCOS history
+  /// and saves the form inputs back into Demographics,
+  /// ReproductiveHistory and Lifestyle.
+  Future<void> _saveCheckToDiary(PcosResult result) async {
+    await HealthProfileService().updateProfile((p) {
+      final updatedHistory = List<PcosCheckResult>.from(p.pcosHistory)
+        ..add(
+          PcosCheckResult(
+            date: DateTime.now(),
+            prediction: result.prediction,
+            pcosProbability: result.pcosProbability,
+            modelUsed: result.modelUsed,
+          ),
+        );
+
+      final age = int.tryParse(_ageController.text.trim());
+      final weight = double.tryParse(_weightController.text.trim());
+      final height = double.tryParse(_heightController.text.trim());
+      final cycleLen = int.tryParse(_cycleLengthController.text.trim());
+
+      return p.copyWith(
+        pcosHistory: updatedHistory,
+        demographics: p.demographics.copyWith(
+          ageYrs: age,
+          weightKg: weight,
+          heightCm: height,
+        ),
+        reproductiveHistory: p.reproductiveHistory.copyWith(
+          cycleRegularity: _cycleRegularity,
+          cycleLengthDays: cycleLen,
+        ),
+        lifestyle: p.lifestyle.copyWith(
+          regularExercise: _regularExercise,
+          fastFoodFrequent: _fastFood,
+        ),
+      );
+    });
   }
 
   Widget _sectionLabel(String text) {
