@@ -31,6 +31,28 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+    // Live profile updates: a diary entry saved from another screen, a
+    // privacy toggle, or a background cross-device sync refreshes the
+    // Home snapshot immediately instead of only on the next remount.
+    HealthProfileService().profileUpdated.addListener(_onExternalProfileUpdate);
+  }
+
+  void _onExternalProfileUpdate() {
+    if (!mounted) return;
+    final updated = HealthProfileService().profileUpdated.value;
+    if (updated == null) return;
+    if (_profile != null && updated.userId != _profile!.userId) {
+      return; // another account's document; not for this screen
+    }
+    setState(() => _profile = updated);
+  }
+
+  @override
+  void dispose() {
+    HealthProfileService().profileUpdated.removeListener(
+      _onExternalProfileUpdate,
+    );
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {

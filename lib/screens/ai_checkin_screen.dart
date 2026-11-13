@@ -105,10 +105,28 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
     super.initState();
     _loadInitialState();
     _initSpeech();
+    // Live profile updates: a diary entry saved in the Health Diary or
+    // a privacy toggle flipped in Data & Privacy reaches this tab (even
+    // while it's parked behind the shell's IndexedStack) through the
+    // service's shared notifier.
+    _profileService.profileUpdated.addListener(_onExternalProfileUpdate);
+  }
+
+  void _onExternalProfileUpdate() {
+    if (!mounted) return;
+    final updated = _profileService.profileUpdated.value;
+    if (updated == null) return;
+    if (_profile == null || updated.userId != _profile!.userId) {
+      return; // no doc yet / another account's document
+    }
+    // Chat messages are independent in-memory state and are NOT reset
+    // here -- only the profile document the updates/privacy come from.
+    setState(() => _profile = updated);
   }
 
   @override
   void dispose() {
+    _profileService.profileUpdated.removeListener(_onExternalProfileUpdate);
     _inputController.dispose();
     _scrollController.dispose();
     _inputFocusNode.dispose();
@@ -476,6 +494,16 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       _pendingAttachment = null;
     });
 
+    // Live privacy at send time: the profile the request is built from
+    // is the latest COMMITTED one, so a toggle flipped while an earlier
+    // turn was in flight takes effect on this very message instead of
+    // one message late (task 1.4).
+    final committedProfile = _profileService.profileUpdated.value;
+    if (committedProfile != null &&
+        committedProfile.userId == (_profile?.userId ?? '')) {
+      _profile = committedProfile;
+    }
+
     // The backend accepts at most 10 history entries per request, so only
     // send the most recent ones (otherwise long chats fail with a 422).
     final allHistory = List<ConversationEntry>.from(_messages);
@@ -561,9 +589,9 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
         _errorText = e is AuthRequiredException
             ? e.message
             : e is ChatServerException
-                ? e.message
-                : "Couldn't reach the check-in assistant. Please check "
-                    'your internet connection and try again.';
+            ? e.message
+            : "Couldn't reach the check-in assistant. Please check "
+                  'your internet connection and try again.';
       });
     }
   }
@@ -696,7 +724,10 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 itemCount: _messages.length + (_sending ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < _messages.length) {
@@ -709,7 +740,10 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
             if (_navHint != null) _navHintBanner(_navHint!),
             if (_errorText != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: Text(
                   _errorText!,
                   style: AppTextStyles.sans(
@@ -775,8 +809,10 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('✦',
-                        style: TextStyle(fontSize: 10, color: _cClay)),
+                    const Text(
+                      '✦',
+                      style: TextStyle(fontSize: 10, color: _cClay),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       tr(s),
@@ -981,7 +1017,9 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
     // Claude-style assistant turn: plain, unhurried text on the paper
     // background under a small star + name row -- no boxed bubble, so
     // longer replies read like a letter instead of a chat app.
-    final hour = entry.timestamp.hour % 12 == 0 ? 12 : entry.timestamp.hour % 12;
+    final hour = entry.timestamp.hour % 12 == 0
+        ? 12
+        : entry.timestamp.hour % 12;
     final stamp =
         '$hour:${entry.timestamp.minute.toString().padLeft(2, '0')} '
         '${entry.timestamp.hour >= 12 ? 'pm' : 'am'}';
@@ -1016,18 +1054,16 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                 ),
               ),
               const SizedBox(width: 7),
-              Text(
-                stamp,
-                style: AppTextStyles.sans(size: 10, color: _cMuted),
-              ),
+              Text(stamp, style: AppTextStyles.sans(size: 10, color: _cMuted)),
             ],
           ),
           const SizedBox(height: 7),
           Text(
             entry.message,
-            style: AppTextStyles.sans(size: 14, color: _cText).copyWith(
-              height: 1.55,
-            ),
+            style: AppTextStyles.sans(
+              size: 14,
+              color: _cText,
+            ).copyWith(height: 1.55),
           ),
         ],
       ),
@@ -1142,10 +1178,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                     hint.reason(_language),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.sans(
-                      size: 11.5,
-                      color: _cMuted,
-                    ),
+                    style: AppTextStyles.sans(size: 11.5, color: _cMuted),
                   ),
                 ],
               ),
@@ -1177,11 +1210,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
             IconButton(
               tooltip: isUr ? 'بند کریں' : tr('Dismiss'),
               visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.close_rounded,
-                size: 18,
-                color: _cMuted,
-              ),
+              icon: Icon(Icons.close_rounded, size: 18, color: _cMuted),
               onPressed: () => setState(() => _navHint = null),
             ),
           ],
@@ -1299,10 +1328,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                         : (_language == 'ur'
                               ? 'سہیلی کو پیغام بھیجیں…'
                               : tr('Message Saheli…')),
-                    hintStyle: AppTextStyles.sans(
-                      size: 13,
-                      color: _cMuted,
-                    ),
+                    hintStyle: AppTextStyles.sans(size: 13, color: _cMuted),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -1404,7 +1430,6 @@ class _TypingDotsState extends State<_TypingDots>
   }
 }
 
-
 /// Bottom sheet holding the two AI privacy toggles -- the same settings
 /// stored in the profile's privacySettings (canonical edit home is
 /// Settings > Data & Privacy). Surfaced in the AI chat header because
@@ -1435,10 +1460,7 @@ class _PrivacySheetState extends State<_PrivacySheet> {
     _profile = widget.initialProfile;
   }
 
-  Future<void> _toggle({
-    required String field,
-    required bool value,
-  }) async {
+  Future<void> _toggle({required String field, required bool value}) async {
     final updated = await widget.service.updateProfile(
       (p) => p.copyWith(
         privacySettings: p.privacySettings.copyWith(
