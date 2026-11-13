@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/cycle_data.dart';
 import '../models/daily_log.dart';
 import '../config/api_config.dart';
+import '../services/api_error.dart';
 import '../services/auth_session.dart';
 import '../services/health_profile_service.dart';
 
@@ -362,7 +363,12 @@ class CycleProvider extends ChangeNotifier {
       final body = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        return body['detail'] ?? 'Something went wrong. Please try again.';
+        // `detail` is user-facing only as a plain string; FastAPI
+        // validation errors arrive as a list, whose toString() is a
+        // dump.
+        return body['detail'] is String
+            ? body['detail'] as String
+            : 'Something went wrong. Please try again.';
       }
 
       await login(
@@ -376,7 +382,7 @@ class CycleProvider extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint('signUp error: $e');
-      return 'Could not reach the server. Please check your internet connection and try again.';
+      return ApiError.friendly(e);
     }
   }
 
@@ -405,11 +411,15 @@ class CycleProvider extends ChangeNotifier {
       // route to the verification-code screen instead of Home.
       if (response.statusCode == 403 && body['needs_verification'] == true) {
         _emailNeedingVerification = _normalizeEmail(email);
-        return body['detail'] ?? 'Please verify your email first.';
+        return body['detail'] is String
+            ? body['detail'] as String
+            : 'Please verify your email first.';
       }
 
       if (response.statusCode != 200) {
-        return body['detail'] ?? 'Something went wrong. Please try again.';
+        return body['detail'] is String
+            ? body['detail'] as String
+            : 'Something went wrong. Please try again.';
       }
 
       await login(
@@ -423,7 +433,7 @@ class CycleProvider extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint('signIn error: $e');
-      return 'Could not reach the server. Please check your internet connection and try again.';
+      return ApiError.friendly(e);
     }
   }
 
@@ -465,11 +475,7 @@ class CycleProvider extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('requestVerificationCode error: $e');
-      return (
-        error:
-            'Could not reach the server. Please check your internet connection and try again.',
-        devCode: null,
-      );
+      return (error: ApiError.friendly(e), devCode: null);
     }
   }
 
@@ -497,7 +503,9 @@ class CycleProvider extends ChangeNotifier {
 
       final body = jsonDecode(response.body);
       if (response.statusCode != 200) {
-        return body['detail'] ?? 'That code is invalid. Please try again.';
+        return body['detail'] is String
+            ? body['detail'] as String
+            : 'That code is invalid. Please try again.';
       }
 
       if (purpose == 'signup') {
@@ -514,7 +522,7 @@ class CycleProvider extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint('confirmVerificationCode error: $e');
-      return 'Could not reach the server. Please check your internet connection and try again.';
+      return ApiError.friendly(e);
     }
   }
 
@@ -543,12 +551,15 @@ class CycleProvider extends ChangeNotifier {
 
       if (response.statusCode != 200) {
         final body = jsonDecode(response.body);
-        return body['detail'] ?? 'Something went wrong. Please try again.';
+        return body['detail'] is String
+            ? body['detail'] as String
+            : 'Something went wrong. Please try again.';
       }
 
       return null;
-    } catch (_) {
-      return 'Could not reach the server. Please check your internet connection and try again.';
+    } catch (e) {
+      debugPrint('resetPassword error: $e');
+      return ApiError.friendly(e);
     }
   }
 

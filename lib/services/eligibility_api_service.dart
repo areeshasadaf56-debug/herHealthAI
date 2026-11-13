@@ -1,6 +1,9 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
+import 'api_error.dart';
 
 /// MODULE: services/eligibility_api_service.dart
 /// ROLE: Talks to the backend's contraceptive-eligibility endpoints
@@ -118,66 +121,108 @@ class EffectivenessEntry {
 }
 
 class EligibilityApiService {
+  /// Sends [request] with a hard 15-second timeout and maps every
+  /// failure (timeout, no network, unexpected crash) to a friendly
+  /// message, so raw exception dumps never reach the UI.
+  ///
+  /// These endpoints are small lookups against the backend -- nothing
+  /// here legitimately takes longer than 15s, unlike the PCOS /predict
+  /// inference which keeps its 30s budget.
+  static const Duration _timeout = Duration(seconds: 15);
+
+  Future<http.Response> _send(Future<http.Response> request) async {
+    try {
+      return await request.timeout(_timeout);
+    } catch (e) {
+      throw Exception(ApiError.friendly(e));
+    }
+  }
+
+  /// Reads [response] as a JSON list; wraps decode failures so a
+  /// non-JSON answer (proxy error page, HTML) maps to a friendly
+  /// message instead of a FormatException dump.
+  List<dynamic> _decodeList(http.Response response) {
+    try {
+      return jsonDecode(response.body) as List<dynamic>;
+    } catch (e) {
+      throw Exception(ApiError.friendly(e, orElse: ApiError.unreadable));
+    }
+  }
+
   Future<List<Condition>> fetchConditions() async {
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/conditions'),
+    final response = await _send(
+      http.get(Uri.parse('${ApiConfig.baseUrl}/conditions')),
     );
     if (response.statusCode != 200) {
-      throw Exception('Could not load conditions (${response.statusCode})');
+      throw Exception(
+        'Could not load conditions right now (HTTP '
+        '${response.statusCode}). Please try again shortly.',
+      );
     }
-    final List<dynamic> data = jsonDecode(response.body);
+    final List<dynamic> data = _decodeList(response);
     return data
         .map((e) => Condition.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
   Future<List<MethodInfo>> fetchMethodsReference() async {
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/methods_reference'),
+    final response = await _send(
+      http.get(Uri.parse('${ApiConfig.baseUrl}/methods_reference')),
     );
     if (response.statusCode != 200) {
-      throw Exception('Could not load methods (${response.statusCode})');
+      throw Exception(
+        'Could not load methods right now (HTTP '
+        '${response.statusCode}). Please try again shortly.',
+      );
     }
-    final List<dynamic> data = jsonDecode(response.body);
+    final List<dynamic> data = _decodeList(response);
     return data
         .map((e) => MethodInfo.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
   Future<List<EffectivenessEntry>> fetchEffectiveness() async {
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/effectiveness'),
+    final response = await _send(
+      http.get(Uri.parse('${ApiConfig.baseUrl}/effectiveness')),
     );
     if (response.statusCode != 200) {
       throw Exception(
-        'Could not load effectiveness data (${response.statusCode})',
+        'Could not load effectiveness data right now (HTTP '
+        '${response.statusCode}). Please try again shortly.',
       );
     }
-    final List<dynamic> data = jsonDecode(response.body);
+    final List<dynamic> data = _decodeList(response);
     return data
         .map((e) => EffectivenessEntry.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
   Future<List<MethodResult>> checkEligibility(List<String> conditionIds) async {
-    final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/eligibility'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'condition_ids': conditionIds}),
+    final response = await _send(
+      http.post(
+        Uri.parse('${ApiConfig.baseUrl}/eligibility'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'condition_ids': conditionIds}),
+      ),
     );
 
     if (response.statusCode != 200) {
-      String message = 'Could not check eligibility (${response.statusCode})';
+      // The backend's `detail` is user-facing when it is a plain string
+      // (e.g. a validation hint). FastAPI validation errors arrive as a
+      // LIST of objects instead -- toString() of that is a raw dump, so
+      // only strings are shown.
+      String message =
+          'Could not check eligibility right now. Please try again in a moment.';
       try {
         final body = jsonDecode(response.body);
-        if (body is Map && body['detail'] != null) {
-          message = body['detail'].toString();
+        if (body is Map && body['detail'] is String) {
+          message = body['detail'] as String;
         }
       } catch (_) {}
       throw Exception(message);
     }
 
-    final decoded = jsonDecode(response.body);
+    final decoded = _decodeBody(response.body);
 
     // Accept either a plain list or an object wrapping the list.
     List<dynamic> data;
@@ -192,18 +237,31 @@ class EligibilityApiService {
       if (inner is List) {
         data = inner;
       } else {
-        throw FormatException(
-          'Unexpected eligibility response: ${response.body}',
-        );
+        throw Exception(ApiError.unreadable);
       }
     } else {
-      throw FormatException(
-        'Unexpected eligibility response: ${response.body}',
-      );
+      throw Exception(ApiError.unreadable);
     }
 
     return data
-        .map((e) => MethodResult.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map((e) {
+          try {
+            return MethodResult.fromJson(Map<String, dynamic>.from(e as Map));
+          } catch (e) {
+            // One malformed row must not kill the whole list (same rule as
+            // the profile parser in task 1.6); skip it.
+            return null;
+          }
+        })
+        .whereType<MethodResult>()
         .toList();
+  }
+
+  dynamic _decodeBody(String body) {
+    try {
+      return jsonDecode(body);
+    } catch (e) {
+      throw Exception(ApiError.friendly(e, orElse: ApiError.unreadable));
+    }
   }
 }

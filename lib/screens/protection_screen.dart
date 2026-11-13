@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Text;
 import '../l10n/app_text.dart';
 import '../theme/app_theme.dart';
 import '../services/eligibility_api_service.dart';
+import '../services/api_error.dart';
 import '../services/health_profile_service.dart';
 import '../models/health_profile.dart';
 import '../widgets/app_animations.dart';
@@ -895,8 +896,12 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
       debugPrint('eligibility error: $e\n$st');
       if (!mounted) return;
       setState(() {
-        _eligibilityError =
-            'Could not check eligibility right now. Please try again in a moment.\n\nDetails: $e';
+        _eligibilityError = ApiError.friendly(
+          e,
+          orElse:
+              'Could not check eligibility right now. '
+              'Please try again in a moment.',
+        );
       });
     } finally {
       if (mounted) setState(() => _checkingEligibility = false);
@@ -1287,10 +1292,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                 ),
               )
             else
-              AppSwitcher(
-                tabKey: _activeTab,
-                child: _buildMyPlanTab(),
-              ),
+              AppSwitcher(tabKey: _activeTab, child: _buildMyPlanTab()),
             const SizedBox(height: 16),
           ],
         ),
@@ -1354,7 +1356,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
         height: 46,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isActive ? activeColor.withValues(alpha: 0.15) : AppColors.surface,
+          color: isActive
+              ? activeColor.withValues(alpha: 0.15)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isActive
@@ -1659,7 +1663,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
+                disabledBackgroundColor: AppColors.primary.withValues(
+                  alpha: 0.4,
+                ),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 elevation: 0,
@@ -1695,7 +1701,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
               decoration: BoxDecoration(
                 color: AppColors.periodRed.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.periodRed.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.periodRed.withValues(alpha: 0.3),
+                ),
               ),
               child: Text(
                 _eligibilityError!,
@@ -2015,7 +2023,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: color.withValues(alpha: 0.35)),
+                        border: Border.all(
+                          color: color.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Text(
                         m,
@@ -2049,7 +2059,10 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
         }
         if (snapshot.hasError) {
           return Text(
-            'Could not load conditions: ${snapshot.error}',
+            ApiError.friendly(
+              snapshot.error,
+              orElse: 'Could not load conditions. Please try again shortly.',
+            ),
             style: AppTextStyles.sans(size: 12, color: AppColors.periodRed),
           );
         }
@@ -3369,7 +3382,9 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.ovulationTeal.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: AppColors.ovulationTeal.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         children: [

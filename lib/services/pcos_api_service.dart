@@ -1,6 +1,9 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
+import 'api_error.dart';
 
 /// Handles communication with the FastAPI PCOS backend.
 class PcosApiService {
@@ -69,12 +72,10 @@ class PcosApiService {
       response = await http
           .post(uri, headers: {'Content-Type': 'application/json'}, body: body)
           .timeout(const Duration(seconds: 30));
-    } on http.ClientException {
-      throw Exception(
-        'Could not reach the server right now. Please try again shortly.',
-      );
     } catch (e) {
-      throw Exception('Request timed out or failed: $e');
+      // Network failure, timeout, anything else: one friendly sentence,
+      // no exception dumps.
+      throw Exception(ApiError.friendly(e));
     }
 
     if (response.statusCode == 200) {
@@ -82,11 +83,14 @@ class PcosApiService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return PcosResult.fromJson(data);
       } catch (e) {
-        throw Exception('Server responded, but the data could not be read: $e');
+        throw Exception(ApiError.friendly(e, orElse: ApiError.unreadable));
       }
     } else {
+      // Show the status code (useful when reporting a problem) but never
+      // the raw response body, which can be a whole HTML error page.
       throw Exception(
-        'Server error (${response.statusCode}): ${response.body}',
+        'The server had a problem (HTTP ${response.statusCode}). '
+        'Please try again shortly.',
       );
     }
   }

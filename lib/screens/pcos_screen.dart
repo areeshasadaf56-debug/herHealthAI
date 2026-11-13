@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/pcos_api_service.dart';
+import '../services/api_error.dart';
 import '../services/health_profile_service.dart';
 import '../widgets/app_animations.dart';
 import '../widgets/pcos_comfort.dart'; // COMFORT_UI
@@ -709,7 +710,9 @@ class _PcosScreenState extends State<PcosScreen> {
     ];
     String? summary;
     if (_result != null) {
-      final pct = (_result!.pcosProbability * 100).clamp(0, 100).toStringAsFixed(0);
+      final pct = (_result!.pcosProbability * 100)
+          .clamp(0, 100)
+          .toStringAsFixed(0);
       summary = '${_result!.prediction} (estimated likelihood $pct%)';
     }
     return PcosVisitData(
@@ -1102,7 +1105,10 @@ class _PcosScreenState extends State<PcosScreen> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorText = 'Could not get a prediction: $e';
+        _errorText = ApiError.friendly(
+          e,
+          orElse: 'Could not get a prediction. Please try again.',
+        );
       });
     }
   }
