@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/cycle_provider.dart';
 import '../models/health_profile.dart';
+import '../services/auth_session.dart';
 import '../services/health_profile_service.dart';
 import '../widgets/month_calendar.dart';
 import '../widgets/ai_welcome_card.dart';
@@ -26,6 +27,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  /// Shown at most once per app run (per isolate), so dismissing it
+  /// never becomes a nag loop within one session.
+  static bool _consentDialogShownThisRun = false;
+
   HealthProfile? _profile;
 
   @override
@@ -60,6 +65,73 @@ class _HomeScreenState extends State<HomeScreen> {
     final profile = await HealthProfileService().loadProfile();
     if (!mounted) return;
     setState(() => _profile = profile);
+    await _maybeShowConsentDialog(profile);
+  }
+
+  /// One-time consent notice (task 4.2): accounts created before the
+  /// sign-up checkbox existed -- or whose signup consent write didn't
+  /// complete -- get one clear disclosure on their first signed-in Home
+  /// visit. Only shown when a usable session exists (anonymous,
+  /// device-only usage sends nothing anywhere) and no consent timestamp
+  /// is recorded yet.
+  Future<void> _maybeShowConsentDialog(HealthProfile profile) async {
+    if (_consentDialogShownThisRun) return;
+    await AuthSession.ensureLoaded();
+    if (!AuthSession.isValid) return;
+    if (profile.privacySettings.consentAcceptedAt != null) return;
+    _consentDialogShownThisRun = true;
+    if (!mounted) return;
+
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'How Wellness Saheli handles your data',
+          style: AppTextStyles.sans(size: 16, weight: FontWeight.w600),
+        ),
+        content: Text(
+          'Your daily logs stay on this device. When you\'re signed in, '
+          'a private copy of your health profile — including your diary '
+          'entries and AI conversations — syncs to the Wellness Saheli '
+          'server so your data follows you across devices. AI check-in '
+          'messages are processed by an external AI service. You can '
+          'review or delete your data any time in Settings → Data & '
+          'Privacy.',
+          style: AppTextStyles.sans(
+            size: 13,
+            color: AppColors.textSecondary,
+          ).copyWith(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not now'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'I understand',
+              style: AppTextStyles.sans(
+                size: 13,
+                weight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true) return; // asked again next launch
+    if (!mounted) return;
+
+    await HealthProfileService().updateProfile(
+      (p) => p.copyWith(
+        privacySettings: p.privacySettings.copyWith(
+          consentAcceptedAt: DateTime.now(),
+        ),
+      ),
+    );
   }
 
   String _formattedDate() {

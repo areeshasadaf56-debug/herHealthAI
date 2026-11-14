@@ -3,6 +3,10 @@ import '../l10n/app_text.dart';
 import 'package:provider/provider.dart';
 import '../providers/cycle_provider.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_session.dart';
+import '../services/health_profile_service.dart';
+import 'data_privacy_screen.dart';
+import 'terms_screen.dart';
 import 'verify_email_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -20,6 +24,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _obscurePassword = true;
   String? _errorText;
   bool _isSubmitting = false;
+
+  /// Explicit, required acceptance of the Terms of Use and Privacy
+  /// Policy before an account can be created (task 4.2).
+  bool _acceptedTerms = false;
 
   @override
   void dispose() {
@@ -52,6 +60,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       setState(() => _errorText = 'Passwords do not match.');
       return;
     }
+    if (!_acceptedTerms) {
+      setState(
+        () => _errorText =
+            'Please accept the Terms of Use and Privacy Policy to '
+            'continue.',
+      );
+      return;
+    }
 
     setState(() {
       _errorText = null;
@@ -74,6 +90,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
       });
       return;
     }
+
+    // Record the consent acceptance right away when the account
+    // identity is already in hand (signup responses include a user id).
+    // Best-effort: if this write can't complete, the one-time Home
+    // dialog records consent on the account's next visit, so no path
+    // leaves the acceptance unrecorded.
+    await AuthSession.ensureLoaded();
+    final consentUserId = AuthSession.userId;
+    if (consentUserId != null && consentUserId.isNotEmpty) {
+      await HealthProfileService().updateProfile(
+        (p) => p.copyWith(
+          privacySettings: p.privacySettings.copyWith(
+            consentAcceptedAt: DateTime.now(),
+          ),
+        ),
+      );
+    }
+    if (!mounted) return;
 
     // Account created but NOT signed in: email verification comes first.
     // The verify screen requests the 6-digit code itself; on success it
@@ -172,6 +206,57 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 hint: 'Re-enter your password',
                 obscureText: _obscurePassword,
               ),
+              const SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      value: _acceptedTerms,
+                      onChanged: (v) =>
+                          setState(() => _acceptedTerms = v ?? false),
+                      activeColor: AppColors.primary,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: AppTextStyles.sans(
+                          size: 12,
+                          color: AppColors.textSecondary,
+                        ).copyWith(height: 1.4),
+                        children: [
+                          const TextSpan(text: 'I agree to the '),
+                          _linkSpan(
+                            'Terms of Use',
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TermsScreen(),
+                              ),
+                            ),
+                          ),
+                          const TextSpan(text: ' and the '),
+                          _linkSpan(
+                            'Privacy Policy',
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DataPrivacyScreen(),
+                              ),
+                            ),
+                          ),
+                          const TextSpan(text: '.'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               if (_errorText != null) ...[
                 const SizedBox(height: 10),
                 Text(
@@ -241,6 +326,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Tappable link text inside the consent line (WidgetSpan instead of
+  /// a TapGestureRecognizer so there's no recognizer to dispose).
+  WidgetSpan _linkSpan(String label, VoidCallback onTap) {
+    return WidgetSpan(
+      alignment: PlaceholderAlignment.baseline,
+      baseline: TextBaseline.alphabetic,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Text(
+          label,
+          style: AppTextStyles.sans(
+            size: 12,
+            weight: FontWeight.w700,
+            color: AppColors.primary,
           ),
         ),
       ),

@@ -256,10 +256,14 @@ class HealthProfile {
 
 /// ---------------------------------------------------------------
 /// Privacy settings -- user-controlled toggles for what the AI
-/// check-in is allowed to use. Both default to true so existing AI
-/// features keep working exactly as before for anyone who never
-/// visits Settings > Data & Privacy to change them; the toggles exist
-/// so users CAN opt out, not so the app starts locked down.
+/// check-in is allowed to use, plus the record of when the user
+/// accepted the data-consent notice.
+///
+/// Defaults are deliberately split: aiMemoryEnabled keeps AI
+/// conversations working out of the box, while aiCanAccessDiary
+/// defaults to FALSE -- the Data & Privacy screen has always promised
+/// "off by default" for diary access, and the code now honors that
+/// promise. Both toggles exist so users stay in control either way.
 /// ---------------------------------------------------------------
 class PrivacySettings {
   /// Whether the AI check-in sends past turns of the current chat
@@ -270,30 +274,47 @@ class PrivacySettings {
 
   /// Whether the AI check-in may read recent free-text diaryEntries as
   /// additional context (mood, symptom tags, journal text) when
-  /// building its replies.
+  /// building its replies. Off unless the user turns it on.
   final bool aiCanAccessDiary;
+
+  /// When the user accepted the data-consent notice (at sign-up via
+  /// the required checkbox, or later via the one-time in-app dialog
+  /// shown to accounts created before it existed). Null = not yet
+  /// recorded; the Home screen keeps asking until it is.
+  final DateTime? consentAcceptedAt;
 
   const PrivacySettings({
     this.aiMemoryEnabled = true,
-    this.aiCanAccessDiary = true,
+    this.aiCanAccessDiary = false,
+    this.consentAcceptedAt,
   });
 
-  PrivacySettings copyWith({bool? aiMemoryEnabled, bool? aiCanAccessDiary}) {
+  PrivacySettings copyWith({
+    bool? aiMemoryEnabled,
+    bool? aiCanAccessDiary,
+    DateTime? consentAcceptedAt,
+  }) {
     return PrivacySettings(
       aiMemoryEnabled: aiMemoryEnabled ?? this.aiMemoryEnabled,
       aiCanAccessDiary: aiCanAccessDiary ?? this.aiCanAccessDiary,
+      consentAcceptedAt: consentAcceptedAt ?? this.consentAcceptedAt,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'ai_memory_enabled': aiMemoryEnabled,
     'ai_can_access_diary': aiCanAccessDiary,
+    // Always written (even when null) so an accepted-then-cleared
+    // consent round-trips as "not accepted", not as "absent field".
+    'consent_accepted_at': consentAcceptedAt?.toIso8601String(),
   };
 
   factory PrivacySettings.fromJson(Map<String, dynamic> json) {
     return PrivacySettings(
       aiMemoryEnabled: _asBool(json['ai_memory_enabled']) ?? true,
-      aiCanAccessDiary: _asBool(json['ai_can_access_diary']) ?? true,
+      aiCanAccessDiary: _asBool(json['ai_can_access_diary']) ?? false,
+      // Tolerant: absent or unparsable just means "not recorded yet".
+      consentAcceptedAt: _asDateTime(json['consent_accepted_at']),
     );
   }
 }

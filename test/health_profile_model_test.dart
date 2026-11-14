@@ -31,7 +31,9 @@ void main() {
       expect(p.mentalHealth.selfReportedStressLevel, 3);
       expect(p.reproductiveHistory.cycleLengthDays, 35);
       expect(p.privacySettings.aiMemoryEnabled, isTrue);
-      expect(p.privacySettings.aiCanAccessDiary, isTrue); // default kept
+      // Deliberate default flip (task 4.2): diary access is opt-in --
+      // the Data & Privacy screen has always said "off by default".
+      expect(p.privacySettings.aiCanAccessDiary, isFalse);
     });
 
     test('absurd values become null/defaults instead of throwing', () {
@@ -148,6 +150,49 @@ void main() {
       expect(copy.pcosHistory.single.prediction, 'No PCOS Detected');
       expect(copy.privacySettings.aiMemoryEnabled, isFalse);
       expect(copy.lastUpdated, original.lastUpdated);
+    });
+  });
+
+  group('privacy settings: consent record + opt-in defaults (task 4.2)', () {
+    test('fresh profile: diary access off, no consent timestamp yet', () {
+      final p = HealthProfile.empty('consent-x');
+      expect(p.privacySettings.aiMemoryEnabled, isTrue);
+      expect(p.privacySettings.aiCanAccessDiary, isFalse);
+      expect(p.privacySettings.consentAcceptedAt, isNull);
+    });
+
+    test('consentAcceptedAt round-trips through toJson/fromJson', () {
+      final when = DateTime.utc(2026, 11, 14, 9, 30);
+      final original = HealthProfile.empty('consent-x').copyWith(
+        privacySettings: const PrivacySettings().copyWith(
+          consentAcceptedAt: when,
+        ),
+      );
+
+      // The key is always written (even when null) so an
+      // accepted-then-cleared consent round-trips as "not accepted",
+      // not as "absent field".
+      expect(
+        original.toJson()['privacy_settings'],
+        containsPair('consent_accepted_at', when.toIso8601String()),
+      );
+
+      final copy = HealthProfile.fromJson(original.toJson());
+      expect(copy.privacySettings.consentAcceptedAt, when);
+    });
+
+    test('absent or garbage consent timestamp decodes to null (tolerant)', () {
+      final absent = HealthProfile.fromJson({
+        'user_id': 'consent-x',
+        'privacy_settings': <String, dynamic>{},
+      });
+      expect(absent.privacySettings.consentAcceptedAt, isNull);
+
+      final garbage = HealthProfile.fromJson({
+        'user_id': 'consent-x',
+        'privacy_settings': {'consent_accepted_at': 'not a date'},
+      });
+      expect(garbage.privacySettings.consentAcceptedAt, isNull);
     });
   });
 }
