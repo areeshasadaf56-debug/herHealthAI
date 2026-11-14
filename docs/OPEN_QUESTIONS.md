@@ -24,3 +24,17 @@ data in the *current* session and remembering *past* chats. Proposal
 (recorded here for later): split it into two independent toggles —
 "use my diary & profile" and "remember my previous check-ins". Not
 changed yet.
+
+## 3. Reminders toggle has no notification backend (task 2.2)
+
+The Settings > Reminders switch is persisted per account, but nothing
+in the app schedules notifications — no local-notification package,
+no platform channel. The row now says so honestly ("Notification
+delivery isn't set up yet") instead of implying reminders exist.
+
+**Question:** until a notification backend exists, should the default
+stay ON (current: `remindersEnabled ?? true`) or default OFF so a
+fresh install doesn't show an enabled toggle that does nothing?
+
+**Related owner decision:** which package to adopt (allowed deps list
+currently has no notification package — adding one needs approval).

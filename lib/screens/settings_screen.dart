@@ -309,35 +309,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _reminderToggleRow(BuildContext context, CycleProvider cycle) {
-    // NOTE: if this switch still doesn't visually turn on after tapping,
-    // the bug is inside cycle_provider.dart — either `remindersEnabled`
-    // isn't being updated, or `toggleReminders()` isn't calling
-    // notifyListeners(). This widget itself reads/writes correctly.
+    // Task 2.2: a real settings row instead of an emoji + a bare switch.
+    // The whole row is the tap target (not just the 48dp switch), the
+    // switch renders through the app's single switchTheme, and the
+    // subtitle is honest: the preference is persisted per account, but
+    // nothing schedules notifications yet. (Whether the default should
+    // stay ON is with the owner -- docs/OPEN_QUESTIONS.md.)
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: Row(
-        children: [
-          const Text('🔔', style: TextStyle(fontSize: 16)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Reminders',
-              style: AppTextStyles.sans(size: 14, weight: FontWeight.w600),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.read<CycleProvider>().toggleReminders(
+          !cycle.remindersEnabled,
+        ),
+        child: Semantics(
+          toggled: cycle.remindersEnabled,
+          label: 'Reminders',
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.blush,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.notifications_outlined,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reminders',
+                        style: AppTextStyles.sans(
+                          size: 14,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Saved on this device. Notification delivery isn't "
+                        'set up yet.',
+                        style: AppTextStyles.sans(
+                          size: 11,
+                          color: AppColors.textSecondary,
+                        ).copyWith(height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Switch(
+                  value: cycle.remindersEnabled,
+                  onChanged: (val) {
+                    context.read<CycleProvider>().toggleReminders(val);
+                  },
+                ),
+              ],
             ),
           ),
-          Switch(
-            value: cycle.remindersEnabled,
-            onChanged: (val) {
-              context.read<CycleProvider>().toggleReminders(val);
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
