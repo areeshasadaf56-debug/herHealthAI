@@ -26,6 +26,13 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- speech_to_text (AI check-in speak-to-type input): iOS shows a
+	     permission prompt only when these strings are present. Kept
+	     short and factual about app behavior only. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Needed so you can use speak-to-type in the AI check-in.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Needed to turn your speech into text for the AI check-in.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
