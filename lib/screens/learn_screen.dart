@@ -583,7 +583,7 @@ class _LearnScreenState extends State<LearnScreen> {
               topic.subtitle,
               textAlign: TextAlign.center,
               style: AppTextStyles.sans(
-                size: 10,
+                size: 11,
                 color: AppColors.textSecondary,
               ),
             ),

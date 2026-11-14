@@ -81,7 +81,7 @@ Future<void> showDiaryEntryDialog(
                   Text(
                     'MOOD (OPTIONAL)',
                     style: AppTextStyles.sans(
-                      size: 10,
+                      size: 11,
                       weight: FontWeight.w600,
                       color: AppColors.textSecondary,
                     ),
@@ -121,7 +121,7 @@ Future<void> showDiaryEntryDialog(
                   Text(
                     'SYMPTOMS (OPTIONAL)',
                     style: AppTextStyles.sans(
-                      size: 10,
+                      size: 11,
                       weight: FontWeight.w600,
                       color: AppColors.textSecondary,
                     ),

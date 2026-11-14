@@ -789,7 +789,7 @@ class _PcosScreenState extends State<PcosScreen> {
         Text(
           label.toUpperCase(),
           style: AppTextStyles.sans(
-            size: 10,
+            size: 11,
             weight: FontWeight.w600,
             color: AppColors.textSecondary,
           ),
@@ -867,7 +867,7 @@ class _PcosScreenState extends State<PcosScreen> {
         Text(
           'CYCLE REGULARITY',
           style: AppTextStyles.sans(
-            size: 10,
+            size: 11,
             weight: FontWeight.w600,
             color: AppColors.textSecondary,
           ),
@@ -1328,7 +1328,7 @@ class _PcosCardState extends State<PcosCard> {
                           child: Text(
                             t.label,
                             style: AppTextStyles.sans(
-                              size: 10,
+                              size: 11,
                               weight: FontWeight.w600,
                               color: t.color,
                             ),

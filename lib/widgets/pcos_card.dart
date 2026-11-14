@@ -68,8 +68,10 @@ class _PcosCardState extends State<PcosCard> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Center(
-                      child: Text(widget.emoji,
-                          style: const TextStyle(fontSize: 18)),
+                      child: Text(
+                        widget.emoji,
+                        style: const TextStyle(fontSize: 18),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -77,21 +79,32 @@ class _PcosCardState extends State<PcosCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.title,
-                            style: AppTextStyles.sans(
-                                size: 14, weight: FontWeight.w600)),
+                        Text(
+                          widget.title,
+                          style: AppTextStyles.sans(
+                            size: 14,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(widget.subtitle,
-                            style: AppTextStyles.sans(
-                                size: 11, color: AppColors.textSecondary)),
+                        Text(
+                          widget.subtitle,
+                          style: AppTextStyles.sans(
+                            size: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: Icon(Icons.keyboard_arrow_down,
-                        size: 20, color: AppColors.textSecondary),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -113,18 +126,24 @@ class _PcosCardState extends State<PcosCard> {
                       children: widget.tags!.map((t) {
                         return Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: t.color.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: t.color.withValues(alpha: 0.4)),
+                              color: t.color.withValues(alpha: 0.4),
+                            ),
                           ),
-                          child: Text(t.label,
-                              style: AppTextStyles.sans(
-                                  size: 10,
-                                  weight: FontWeight.w600,
-                                  color: t.color)),
+                          child: Text(
+                            t.label,
+                            style: AppTextStyles.sans(
+                              size: 11,
+                              weight: FontWeight.w600,
+                              color: t.color,
+                            ),
+                          ),
                         );
                       }).toList(),
                     ),
@@ -158,10 +177,12 @@ class _PcosCardState extends State<PcosCard> {
     }
     if (line.boldLead != null) {
       spans.add(TextSpan(text: line.boldLead, style: boldStyle));
-      spans.add(TextSpan(
-        text: line.number != null ? ' — ${line.text}' : ': ${line.text}',
-        style: baseStyle,
-      ));
+      spans.add(
+        TextSpan(
+          text: line.number != null ? ' — ${line.text}' : ': ${line.text}',
+          style: baseStyle,
+        ),
+      );
     } else {
       spans.add(TextSpan(text: line.text, style: baseStyle));
     }

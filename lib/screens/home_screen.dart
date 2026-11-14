@@ -355,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             'LAST 30 DAYS',
             style: AppTextStyles.sans(
-              size: 10,
+              size: 11,
               weight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
@@ -387,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'pattern is affecting your daily life, consider mentioning it to a '
             'healthcare professional.',
             style: AppTextStyles.sans(
-              size: 10.5,
+              size: 11,
               color: AppColors.textSecondary,
             ).copyWith(fontStyle: FontStyle.italic, height: 1.4),
           ),
@@ -448,7 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   'CYCLE DAY',
                   style: AppTextStyles.sans(
-                    size: 10,
+                    size: 11,
                     weight: FontWeight.w600,
                     color: AppColors.textSecondary,
                   ),
@@ -562,7 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             label,
             style: AppTextStyles.sans(
-              size: 10,
+              size: 11,
               weight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),

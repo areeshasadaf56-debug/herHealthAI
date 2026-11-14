@@ -162,7 +162,7 @@ class _MonthCalendarState extends State<MonthCalendar> {
                       Text(
                         weekdayLabels[date.weekday - 1],
                         style: AppTextStyles.sans(
-                          size: 9,
+                          size: 11,
                           color: AppColors.textSecondary,
                         ),
                       ),

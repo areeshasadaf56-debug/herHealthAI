@@ -847,7 +847,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                   children: [
                     const Text(
                       '✦',
-                      style: TextStyle(fontSize: 10, color: _cClay),
+                      style: TextStyle(fontSize: 11, color: _cClay),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -900,7 +900,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                 const SizedBox(height: 1),
                 Text(
                   tr('Your check-in companion'),
-                  style: AppTextStyles.sans(size: 10.5, color: _cMuted),
+                  style: AppTextStyles.sans(size: 11, color: _cMuted),
                 ),
               ],
             ),
@@ -1076,7 +1076,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                 child: const Center(
                   child: Text(
                     '✦',
-                    style: TextStyle(fontSize: 10, color: Color(0x99FFFFFF)),
+                    style: TextStyle(fontSize: 11, color: Color(0x99FFFFFF)),
                   ),
                 ),
               ),
@@ -1090,7 +1090,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                 ),
               ),
               const SizedBox(width: 7),
-              Text(stamp, style: AppTextStyles.sans(size: 10, color: _cMuted)),
+              Text(stamp, style: AppTextStyles.sans(size: 11, color: _cMuted)),
             ],
           ),
           const SizedBox(height: 7),

@@ -519,7 +519,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
             label,
             textAlign: TextAlign.center,
             style: AppTextStyles.sans(
-              size: 10,
+              size: 11,
               weight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
@@ -742,7 +742,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
               child: Text(
                 tr('Today'),
                 style: AppTextStyles.sans(
-                  size: 10,
+                  size: 11,
                   weight: FontWeight.w700,
                   color: AppColors.primary,
                 ),
@@ -810,7 +810,7 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
                   Text(
                     '${e.date.hour % 12 == 0 ? 12 : e.date.hour % 12}:${e.date.minute.toString().padLeft(2, '0')} ${e.date.hour >= 12 ? 'pm' : 'am'}',
                     style: AppTextStyles.sans(
-                      size: 10,
+                      size: 11,
                       color: AppColors.textSecondary,
                     ),
                   ),

@@ -154,7 +154,7 @@ class OvulationScreen extends StatelessWidget {
           Text(
             'CURRENT FERTILITY LEVEL',
             style: AppTextStyles.sans(
-              size: 10,
+              size: 11,
               weight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
@@ -178,14 +178,14 @@ class OvulationScreen extends StatelessWidget {
               Text(
                 'Low',
                 style: AppTextStyles.sans(
-                  size: 10,
+                  size: 11,
                   color: AppColors.textSecondary,
                 ),
               ),
               Text(
                 'Peak Fertile',
                 style: AppTextStyles.sans(
-                  size: 10,
+                  size: 11,
                   color: AppColors.textSecondary,
                 ),
               ),
@@ -272,7 +272,7 @@ class OvulationScreen extends StatelessWidget {
           Text(
             label,
             style: AppTextStyles.sans(
-              size: 10,
+              size: 11,
               weight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
@@ -360,7 +360,7 @@ class OvulationScreen extends StatelessWidget {
                         child: Text(
                           'CURRENT PHASE',
                           style: AppTextStyles.sans(
-                            size: 8,
+                            size: 11,
                             weight: FontWeight.w700,
                             color: color,
                           ),

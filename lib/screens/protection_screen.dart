@@ -2005,7 +2005,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                 Text(
                   'METHODS THAT FIT',
                   style: AppTextStyles.sans(
-                    size: 10,
+                    size: 11,
                     weight: FontWeight.w600,
                     color: color,
                   ),
@@ -2574,7 +2574,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                 child: Text(
                   label,
                   style: AppTextStyles.sans(
-                    size: 10,
+                    size: 11,
                     weight: FontWeight.w600,
                     color: color,
                   ),
@@ -3045,7 +3045,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
                       child: Text(
                         '${row.$1}',
                         style: AppTextStyles.sans(
-                          size: 10,
+                          size: 11,
                           weight: FontWeight.w700,
                           color: row.$2,
                         ),
@@ -3070,7 +3070,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
           Text(
             'Based on established medical eligibility criteria for contraceptive use. This tool is educational and does not replace advice from a healthcare provider.',
             style: AppTextStyles.sans(
-              size: 10,
+              size: 11,
               color: AppColors.textSecondary,
             ).copyWith(fontStyle: FontStyle.italic, height: 1.4),
           ),
@@ -3101,7 +3101,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
         Text(
           'Numbers indicate % of women experiencing an unintended pregnancy during the first year of typical use of the method. Source: Trussell J., 2011.',
           style: AppTextStyles.sans(
-            size: 10,
+            size: 11,
             color: AppColors.textSecondary,
           ).copyWith(fontStyle: FontStyle.italic, height: 1.4),
         ),
@@ -3516,7 +3516,7 @@ class MethodCard extends StatelessWidget {
                 child: Text(
                   label,
                   style: AppTextStyles.sans(
-                    size: 10,
+                    size: 11,
                     weight: FontWeight.w600,
                     color: color,
                   ),

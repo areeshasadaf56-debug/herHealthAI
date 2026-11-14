@@ -206,11 +206,12 @@ class _HomeShellState extends State<HomeShell>
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                // 10sp minimum readable label (was 7.5sp).
+                                // 11sp is the app's readable floor for
+                                // text (task 2.7); this label was 7.5sp.
                                 Text(
                                   item.shortLabel,
                                   style: AppTextStyles.sans(
-                                    size: 10,
+                                    size: 11,
                                     weight: active
                                         ? FontWeight.w600
                                         : FontWeight.w500,
