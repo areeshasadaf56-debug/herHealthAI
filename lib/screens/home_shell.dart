@@ -162,57 +162,68 @@ class _HomeShellState extends State<HomeShell>
                   final item = _navItems[i];
                   final active = _tabIndex == i;
                   return Expanded(
-                    child: GestureDetector(
-                      onTap: () => _changeTab(i),
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 3,
-                          vertical: 6,
-                        ),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          decoration: BoxDecoration(
-                            color: active
-                                ? AppColors.primary.withValues(alpha: 0.10)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(14),
+                    // Task 2.4: screen readers get the FULL tab name and
+                    // a button+selected state, not a raw icon glyph.
+                    child: Semantics(
+                      button: true,
+                      selected: active,
+                      label: item.label,
+                      child: GestureDetector(
+                        onTap: () => _changeTab(i),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3,
+                            vertical: 6,
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              AnimatedScale(
-                                scale: active ? 1.12 : 1.0,
-                                duration: const Duration(milliseconds: 180),
-                                curve: Curves.easeOut,
-                                child: Icon(
-                                  item.icon,
-                                  size: 18,
-                                  color: active
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            // 7px vertical padding + 20px icon + 4px gap +
+                            // 14px label + another 7px = ~66dp tall item,
+                            // comfortably above the 48dp minimum.
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? AppColors.primary.withValues(alpha: 0.10)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                AnimatedScale(
+                                  scale: active ? 1.12 : 1.0,
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOut,
+                                  child: Icon(
+                                    item.icon,
+                                    size: 20,
+                                    color: active
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                item.shortLabel,
-                                style: AppTextStyles.sans(
-                                  size: 7.5,
-                                  weight: active
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                  color: active
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
+                                const SizedBox(height: 4),
+                                // 10sp minimum readable label (was 7.5sp).
+                                Text(
+                                  item.shortLabel,
+                                  style: AppTextStyles.sans(
+                                    size: 10,
+                                    weight: active
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: active
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
