@@ -70,54 +70,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 20),
               _sectionHeading('HEALTH'),
               const SizedBox(height: 10),
-              _settingsRow(context, '📖', 'My Health Diary', 'View', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const HealthDiaryScreen(),
-                  ),
-                );
-              }),
+              _settingsRow(
+                context,
+                Icons.auto_stories_outlined,
+                'My Health Diary',
+                'View',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const HealthDiaryScreen(),
+                    ),
+                  );
+                },
+              ),
 
               const SizedBox(height: 20),
-              _sectionHeading('CYCLE SETTINGS'),
+              _sectionHeading('CYCLE'),
               const SizedBox(height: 10),
-              _settingsRow(context, '🩸', 'Cycle Data', 'Edit', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CycleDataScreen(),
-                  ),
-                );
-              }),
+              _settingsRow(
+                context,
+                Icons.water_drop_outlined,
+                'Cycle Data',
+                'Edit',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CycleDataScreen(),
+                    ),
+                  );
+                },
+              ),
               _reminderToggleRow(context, cycle),
-              _settingsRow(context, '📊', 'Data & Privacy', 'Manage', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const DataPrivacyScreen(),
-                  ),
-                );
-              }),
+
+              const SizedBox(height: 20),
+              // Task 2.5: Data & Privacy is an app-wide privacy surface,
+              // not a cycle setting -- its own group now.
+              _sectionHeading('PRIVACY & DATA'),
+              const SizedBox(height: 10),
+              _settingsRow(
+                context,
+                Icons.privacy_tip_outlined,
+                'Data & Privacy',
+                'Manage',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DataPrivacyScreen(),
+                    ),
+                  );
+                },
+              ),
 
               const SizedBox(height: 20),
               _sectionHeading('ABOUT'),
               const SizedBox(height: 10),
-              _settingsRow(context, 'ℹ️', 'About Wellness Saheli', '', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AboutScreen()),
-                );
-              }),
-              _settingsRow(context, '📋', 'Terms & Privacy', '', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const TermsScreen()),
-                );
-              }),
               _settingsRow(
                 context,
-                '⭐',
+                Icons.info_outline,
+                'About Wellness Saheli',
+                '',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AboutScreen(),
+                    ),
+                  );
+                },
+              ),
+              _settingsRow(
+                context,
+                Icons.description_outlined,
+                'Terms & Privacy',
+                '',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TermsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _settingsRow(
+                context,
+                Icons.star_outline,
                 'Rate the App',
                 '',
                 () => _showRateDialog(context),
@@ -262,47 +302,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _settingsRow(
     BuildContext context,
-    String emoji,
+    IconData icon,
     String title,
     String value,
     VoidCallback? onTap,
   ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: Row(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: AppTextStyles.sans(size: 14, weight: FontWeight.w600),
+    // Task 2.5: real icon chips instead of emoji glyphs, plus button
+    // semantics so screen readers announce these as actions. The chip
+    // matches the reminders row (task 2.2) so the screen has one row
+    // language.
+    return Semantics(
+      button: true,
+      label: title,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.blush,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: AppColors.primary),
               ),
-            ),
-            if (value.isNotEmpty) ...[
-              Text(
-                value,
-                style: AppTextStyles.sans(
-                  size: 12,
-                  color: AppColors.textSecondary,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTextStyles.sans(size: 14, weight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(width: 6),
+              if (value.isNotEmpty) ...[
+                Text(
+                  value,
+                  style: AppTextStyles.sans(
+                    size: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
             ],
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
-          ],
+          ),
         ),
       ),
     );
