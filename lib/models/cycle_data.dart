@@ -9,7 +9,12 @@ class CycleData {
   /// date, and screens showing cycle math prompt for the date instead
   /// of displaying invented day numbers.
   DateTime? lastPeriodStart;
-  int cycleLength; // average days between periods
+
+  /// Average days between periods. SOURCE OF TRUTH for the calendar
+  /// math (task 3.6); `ReproductiveHistory.cycleLengthDays` in the
+  /// synced profile is a written copy of this, mirrored by
+  /// CycleProvider.updateCycleLength.
+  int cycleLength;
   int periodDuration; // how many days the period lasts
 
   CycleData({

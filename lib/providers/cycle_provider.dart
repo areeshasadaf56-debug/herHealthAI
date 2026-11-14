@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -729,10 +730,10 @@ class CycleProvider extends ChangeNotifier {
   static const int _maxPeriodDuration = 10;
 
   void updateCycleLength(int length) {
-    _cycleData.cycleLength = length
-        .clamp(_minCycleLength, _maxCycleLength)
-        .toInt();
+    final clamped = length.clamp(_minCycleLength, _maxCycleLength).toInt();
+    _cycleData.cycleLength = clamped;
     _saveCycleData();
+    _mirrorCycleLengthToProfile(clamped);
     notifyListeners();
   }
 
@@ -742,6 +743,30 @@ class CycleProvider extends ChangeNotifier {
         .toInt();
     _saveCycleData();
     notifyListeners();
+  }
+
+  /// Task 3.6: the profile's `ReproductiveHistory.cycleLengthDays` (the
+  /// copy the Health Diary shows and the PCOS form pre-fills) is a
+  /// WRITTEN COPY of the tracker's setting, never an independent
+  /// source. Every tracker change re-asserts it here, so the calendar
+  /// math and the profile views can't silently disagree. The PCOS form
+  /// still writes its own value into the profile copy (it feeds ML
+  /// features); the next tracker edit re-mirrors over it.
+  void _mirrorCycleLengthToProfile(int length) {
+    final service = HealthProfileService();
+    if (service.profileUpdated.value?.reproductiveHistory.cycleLengthDays ==
+        length) {
+      return;
+    }
+    unawaited(
+      service.updateProfile(
+        (p) => p.copyWith(
+          reproductiveHistory: p.reproductiveHistory.copyWith(
+            cycleLengthDays: length,
+          ),
+        ),
+      ),
+    );
   }
 
   void logPeriodStartToday() {

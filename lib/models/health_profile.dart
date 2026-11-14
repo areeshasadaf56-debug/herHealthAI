@@ -474,6 +474,13 @@ class Lifestyle {
 /// ---------------------------------------------------------------
 class ReproductiveHistory {
   final String? cycleRegularity; // 'Regular' or 'Irregular'
+
+  /// WRITTEN COPY of the user's cycle length (task 3.6): the tracker's
+  /// `CycleData.cycleLength` (cycle_provider) is the source of truth
+  /// and mirrors into this field on every tracker change. The PCOS
+  /// form also writes its own entered value here directly (it feeds ML
+  /// features). Read paths (Health Diary display, PCOS prefill) use
+  /// this copy; never treat it as an independent setting.
   final int? cycleLengthDays;
 
   /// The contraception method currently in use, if any (matches the

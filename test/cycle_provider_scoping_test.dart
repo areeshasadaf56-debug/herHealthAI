@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wellness_saheli/providers/cycle_provider.dart';
 import 'package:wellness_saheli/services/auth_session.dart';
+import 'package:wellness_saheli/services/health_profile_service.dart';
 
 /// Test seam: CycleProvider self-loads in its constructor; wait for the
 /// async _loadData() to finish so assertions see steady state.
@@ -31,9 +33,10 @@ void main() {
   setUp(() async {
     // Mock store per test AND a cleared session: static state persists
     // across tests in the same run, which is exactly the leak class we're
-    // testing against.
+    // testing against. The profile service caches per-user state too.
     SharedPreferences.setMockInitialValues({});
     await AuthSession.clear();
+    HealthProfileService().discardCachedProfile();
   });
 
   test('legacy unscoped data migrates to the FIRST account that signs in, '
@@ -159,4 +162,48 @@ void main() {
       expect(provider.cycleData.periodDuration, 10, reason: 'above max');
     },
   );
+
+  test("tracker cycle length mirrors into the profile's synced copy "
+      '(task 3.6)', () async {
+    // Fake HTTP: every request answers 404, so the profile service
+    // falls back to a blank LOCAL profile and any push simply fails
+    // without touching a network.
+    HealthProfileService.overrideHttpClient(_NeverOkClient());
+    try {
+      final service = HealthProfileService();
+      await service.loadProfile();
+
+      final provider = await _loadedProvider();
+      provider.updateCycleLength(33);
+
+      // The mirror is fire-and-forget through the service queue: give
+      // it a beat to land.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        service.profileUpdated.value?.reproductiveHistory.cycleLengthDays,
+        33,
+        reason: 'profile copy follows the tracker',
+      );
+
+      provider.updateCycleLength(24);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        service.profileUpdated.value?.reproductiveHistory.cycleLengthDays,
+        24,
+        reason: 'mirror keeps up on later changes',
+      );
+    } finally {
+      HealthProfileService.overrideHttpClient(null);
+      HealthProfileService().discardCachedProfile();
+    }
+  });
+}
+
+/// HTTP client stub for profile-service tests: answers everything with
+/// 404 so no test ever opens a real socket.
+class _NeverOkClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(const Stream.empty(), 404);
+  }
 }
