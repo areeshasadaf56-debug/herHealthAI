@@ -3,6 +3,7 @@ import '../l10n/app_text.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/cycle_provider.dart';
+import '../utils/app_dates.dart';
 
 class MonthCalendar extends StatefulWidget {
   const MonthCalendar({super.key});
@@ -84,10 +85,9 @@ class _MonthCalendarState extends State<MonthCalendar> {
     final cycleLength = cycle.cycleLength;
     final periodDuration = cycle.periodDuration;
 
-    final normalizedDate = DateTime(date.year, date.month, date.day);
-    final normalizedStart = DateTime(start.year, start.month, start.day);
-
-    int daysSince = normalizedDate.difference(normalizedStart).inDays;
+    // daysBetween is midnight-anchored (task 3.4) -- same as the old
+    // hand-rolled normalization, minus the duplicated code.
+    int daysSince = daysBetween(start, date);
     int cyclePos = daysSince % cycleLength;
     if (cyclePos < 0) cyclePos += cycleLength;
 

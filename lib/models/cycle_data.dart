@@ -1,3 +1,5 @@
+import '../utils/app_dates.dart';
+
 class CycleData {
   DateTime lastPeriodStart;
   int cycleLength; // average days between periods
@@ -10,10 +12,15 @@ class CycleData {
   });
 
   // Which day of the cycle is it today (1-based)
-  int getCurrentCycleDay() {
-    final daysSince = DateTime.now().difference(lastPeriodStart).inDays;
-    final dayInCycle = (daysSince % cycleLength) + 1;
-    return dayInCycle;
+  int getCurrentCycleDay() => getCurrentCycleDayOn(DateTime.now());
+
+  /// The same computation against an arbitrary date: the testable seam
+  /// for the cycle math (task 3.4) and the building block for the
+  /// phase/ovulation getters that consolidate the duplicated copies
+  /// across screens (task 3.1).
+  int getCurrentCycleDayOn(DateTime today) {
+    final daysSince = daysBetween(lastPeriodStart, today);
+    return (daysSince % cycleLength) + 1;
   }
 
   // Rough phase name based on current cycle day
