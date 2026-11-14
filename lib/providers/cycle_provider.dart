@@ -718,14 +718,28 @@ class CycleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Bounds the Cycle Data screen already enforces with its steppers
+  /// (21–45 days length, 2–10 days duration). Enforced here too so the
+  /// single write point can't store values the UI would reject (task
+  /// 3.5). Whether these bounds are clinically right is an owner
+  /// question -- docs/OPEN_QUESTIONS.md §4.
+  static const int _minCycleLength = 21;
+  static const int _maxCycleLength = 45;
+  static const int _minPeriodDuration = 2;
+  static const int _maxPeriodDuration = 10;
+
   void updateCycleLength(int length) {
-    _cycleData.cycleLength = length;
+    _cycleData.cycleLength = length
+        .clamp(_minCycleLength, _maxCycleLength)
+        .toInt();
     _saveCycleData();
     notifyListeners();
   }
 
   void updatePeriodDuration(int duration) {
-    _cycleData.periodDuration = duration;
+    _cycleData.periodDuration = duration
+        .clamp(_minPeriodDuration, _maxPeriodDuration)
+        .toInt();
     _saveCycleData();
     notifyListeners();
   }

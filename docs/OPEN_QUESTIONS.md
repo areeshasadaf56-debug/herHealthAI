@@ -38,3 +38,31 @@ fresh install doesn't show an enabled toggle that does nothing?
 
 **Related owner decision:** which package to adopt (allowed deps list
 currently has no notification package — adding one needs approval).
+
+## 4. Cycle input ranges are not unified (task 3.5)
+
+Two entry points accept a "cycle length" today, and they disagree on
+bounds:
+
+| Entry point | Bounds |
+| --- | --- |
+| Cycle tracker (Settings → Cycle Data stepper) | clamped 21–45 days, period duration 2–10 days (`cycle_data_screen.dart`) — now also enforced at the provider write point |
+| PCOS/ML form ("Cycle length (days)" free-text field) | no validation — any parseable integer goes into `ReproductiveHistory.cycleLengthDays` and is sent to the ML backend as a feature (`pcos_screen.dart`) |
+
+The AI chat cannot change cycle settings (the 1.7 allow-list has no
+cycle surface), so these are the only two paths.
+
+**Questions for the owner:**
+1. Should the two entry points share one range? If yes, which — the
+   tracker's 21–45, or something else?
+2. Are the tracker's existing bounds (21–45 length, 2–10 duration)
+   clinically right for this app's audience? Not verified against any
+   source during this pass — confirming or changing them is an owner
+   decision, not something the code change should invent.
+3. Should the ML form get range validation at all, given the backend
+   (`pcos_ml_project`, out of bounds) consumes these values as model
+   features? Whatever the client accepts should be within what the
+   model was trained to expect — a backend contract question.
+
+No medical range was changed by task 3.5: the provider clamp only
+enforces the bounds the tracker UI already declared.

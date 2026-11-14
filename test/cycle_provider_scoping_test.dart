@@ -140,4 +140,23 @@ void main() {
     // Session cleared.
     expect(AuthSession.userId, isNull);
   });
+
+  test(
+    'cycle settings are clamped to the app\'s declared ranges (task 3.5)',
+    () async {
+      final provider = await _loadedProvider();
+
+      provider.updateCycleLength(200);
+      expect(provider.cycleData.cycleLength, 45, reason: 'above max');
+      provider.updateCycleLength(5);
+      expect(provider.cycleData.cycleLength, 21, reason: 'below min');
+      provider.updateCycleLength(30);
+      expect(provider.cycleData.cycleLength, 30, reason: 'in range unchanged');
+
+      provider.updatePeriodDuration(0);
+      expect(provider.cycleData.periodDuration, 2, reason: 'below min');
+      provider.updatePeriodDuration(99);
+      expect(provider.cycleData.periodDuration, 10, reason: 'above max');
+    },
+  );
 }
