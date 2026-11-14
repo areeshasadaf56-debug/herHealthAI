@@ -680,11 +680,16 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       'latest_pcos_result': p.pcosHistory.isNotEmpty
           ? p.pcosHistory.last.prediction
           : null,
-      'cycle': {
-        'current_cycle_day': cycle.getCurrentCycleDay(),
-        'phase': cycle.getPhase(),
-        'days_until_next_period': cycle.daysUntilNextPeriod(),
-      },
+      'cycle': cycle.hasPeriodData
+          ? {
+              // Task 3.2: cycle context is omitted (empty map) while no
+              // period start is recorded -- no invented day numbers or
+              // phases go to the assistant.
+              'current_cycle_day': cycle.getCurrentCycleDay(),
+              'phase': cycle.getPhase(),
+              'days_until_next_period': cycle.daysUntilNextPeriod(),
+            }
+          : const <String, dynamic>{},
     };
 
     if (p.privacySettings.aiCanAccessDiary && p.diaryEntries.isNotEmpty) {

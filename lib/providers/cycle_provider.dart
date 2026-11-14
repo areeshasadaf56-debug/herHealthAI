@@ -10,9 +10,10 @@ import '../services/auth_session.dart';
 import '../services/health_profile_service.dart';
 
 class CycleProvider extends ChangeNotifier {
-  CycleData _cycleData = CycleData(
-    lastPeriodStart: DateTime.now().subtract(const Duration(days: 14)),
-  );
+  // No fabricated placeholder (task 3.2): an account without a stored
+  // period start stays unset until the user picks one, and screens
+  // prompt instead of showing invented day numbers.
+  CycleData _cycleData = CycleData();
 
   bool _isLoaded = false;
   bool _remindersEnabled = true;
@@ -44,23 +45,29 @@ class CycleProvider extends ChangeNotifier {
   Map<String, DailyLog> get dailyLogs => _dailyLogs;
   DateTime? get selectedPeriodDate => _selectedPeriodDate;
 
-  int get currentCycleDay => _cycleData.getCurrentCycleDay();
-  String get currentPhase => _cycleData.getPhase();
-  int get daysUntilNextPeriod => _cycleData.daysUntilNextPeriod();
+  // Task 3.2: derived cycle values are null while no period start is
+  // recorded; screens guard on hasPeriodData and prompt instead.
+  int? get currentCycleDay => _cycleData.getCurrentCycleDay();
+  String? get currentPhase => _cycleData.getPhase();
+  int? get daysUntilNextPeriod => _cycleData.daysUntilNextPeriod();
   int get cycleLength => _cycleData.cycleLength;
   int get periodDuration => _cycleData.periodDuration;
 
   /// Single source of truth lives on CycleData (task 3.1); screens
   /// read it through here instead of recomputing the formula.
   int get ovulationDay => _cycleData.ovulationDay;
-  int get daysUntilOvulation => _cycleData.daysUntilOvulation;
+  int? get daysUntilOvulation => _cycleData.daysUntilOvulation;
 
   /// Late-period state (task 3.3): the wrapped cycle day silently
   /// restarts once the period is due, so screens surface lateness
   /// through these instead.
-  int get daysSinceLastPeriodStart => _cycleData.daysSinceLastPeriodStart;
+  int? get daysSinceLastPeriodStart => _cycleData.daysSinceLastPeriodStart;
   bool get isLate => _cycleData.isLate;
   int get daysLate => _cycleData.daysLate;
+
+  /// True once a period start is recorded; cycle math is only shown
+  /// when this holds (task 3.2).
+  bool get hasPeriodData => _cycleData.hasPeriodData;
 
   bool get remindersEnabled => _remindersEnabled;
 
@@ -191,9 +198,8 @@ class CycleProvider extends ChangeNotifier {
     } else {
       // Fresh account, no stored dates: blank state, never the
       // previous account's or the signed-out session's data.
-      _cycleData = CycleData(
-        lastPeriodStart: DateTime.now().subtract(const Duration(days: 14)),
-      );
+      // (Task 3.2: blank means no period date at all.)
+      _cycleData = CycleData();
       _selectedPeriodDate = null;
     }
 
@@ -640,9 +646,7 @@ class CycleProvider extends ChangeNotifier {
       }
       // In-memory: blank cycle state so no removed data lingers on
       // screen behind the sign-in navigation.
-      _cycleData = CycleData(
-        lastPeriodStart: DateTime.now().subtract(const Duration(days: 14)),
-      );
+      _cycleData = CycleData();
       _selectedPeriodDate = null;
       _dailyLogs = {};
       _remindersEnabled = true;
@@ -684,10 +688,17 @@ class CycleProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     // Scoped per account (falls back to the bare key when signed out),
     // so a second account signing in never reads the first one's dates.
-    await prefs.setInt(
-      _scopedKey('lastPeriodStart'),
-      _cycleData.lastPeriodStart.millisecondsSinceEpoch,
-    );
+    // Task 3.2: an unset period start removes the key instead of
+    // persisting a placeholder, so the load path reads it back as unset.
+    final start = _cycleData.lastPeriodStart;
+    if (start != null) {
+      await prefs.setInt(
+        _scopedKey('lastPeriodStart'),
+        start.millisecondsSinceEpoch,
+      );
+    } else {
+      await prefs.remove(_scopedKey('lastPeriodStart'));
+    }
     await prefs.setInt(_scopedKey('cycleLength'), _cycleData.cycleLength);
     await prefs.setInt(_scopedKey('periodDuration'), _cycleData.periodDuration);
   }

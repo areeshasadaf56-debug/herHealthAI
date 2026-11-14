@@ -173,4 +173,57 @@ void main() {
       expect(data.daysLateOn(DateTime(2026, 11, 26)), 11);
     });
   });
+
+  group('unset period data (task 3.2)', () {
+    final data = CycleData();
+
+    test('derived math reports null instead of inventing a day', () {
+      expect(data.hasPeriodData, isFalse);
+      expect(data.getCurrentCycleDay(), isNull);
+      expect(data.getCurrentCycleDayOn(DateTime(2026, 11, 14)), isNull);
+      expect(data.getPhase(), isNull);
+      expect(data.daysUntilNextPeriod(), isNull);
+      expect(data.daysUntilOvulation, isNull);
+      expect(data.daysSinceLastPeriodStart, isNull);
+      // Lateness is undefined without an anchor date: not late, 0 days.
+      expect(data.isLate, isFalse);
+      expect(data.daysLate, 0);
+    });
+
+    test('set state still works (regression guard for the nullability)', () {
+      final set = CycleData(
+        lastPeriodStart: DateTime(2026, 10, 18),
+        cycleLength: 28,
+      );
+      expect(set.hasPeriodData, isTrue);
+      expect(set.getCurrentCycleDayOn(DateTime(2026, 11, 14)), 28);
+    });
+
+    test('JSON round-trips the unset state, key always written', () {
+      final json = data.toJson();
+      // The key must EXIST with a null value so readers can tell
+      // "not set" apart from an absent key.
+      expect(json.containsKey('lastPeriodStart'), isTrue);
+      expect(json['lastPeriodStart'], isNull);
+      final restored = CycleData.fromJson(json);
+      expect(restored.hasPeriodData, isFalse);
+      expect(restored.cycleLength, 28);
+      expect(restored.periodDuration, 5);
+    });
+
+    test('fromJson treats a missing or null key as unset', () {
+      expect(CycleData.fromJson({'cycleLength': 30}).hasPeriodData, isFalse);
+      expect(
+        CycleData.fromJson({'lastPeriodStart': null}).hasPeriodData,
+        isFalse,
+      );
+      final set = CycleData.fromJson({
+        'lastPeriodStart': '2026-10-18T00:00:00.000',
+        'cycleLength': 28,
+        'periodDuration': 5,
+      });
+      expect(set.hasPeriodData, isTrue);
+      expect(set.lastPeriodStart, DateTime(2026, 10, 18));
+    });
+  });
 }

@@ -82,6 +82,8 @@ class _MonthCalendarState extends State<MonthCalendar> {
 
   bool _isPredictedPeriodDay(DateTime date, CycleProvider cycle) {
     final start = cycle.cycleData.lastPeriodStart;
+    // Task 3.2: no period date recorded -> no predictions to mark.
+    if (start == null) return false;
     final cycleLength = cycle.cycleLength;
     final periodDuration = cycle.periodDuration;
 

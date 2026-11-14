@@ -8,6 +8,7 @@ import '../services/health_profile_service.dart';
 import '../widgets/month_calendar.dart';
 import '../widgets/ai_welcome_card.dart';
 import '../widgets/ai_suggestion_card.dart';
+import 'cycle_data_screen.dart';
 import 'health_diary_screen.dart';
 import 'learn_screen.dart';
 
@@ -437,8 +438,11 @@ class _HomeScreenState extends State<HomeScreen> {
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Task 3.2: no period date recorded yet -> no
+                // invented day number; the chip below becomes the way
+                // to set it.
                 Text(
-                  '${cycle.currentCycleDay}',
+                  cycle.hasPeriodData ? '${cycle.currentCycleDay}' : '–',
                   style: AppTextStyles.serif(
                     size: 42,
                     color: AppColors.periodRed,
@@ -454,26 +458,39 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.periodRed.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    // Task 3.3: once the period is late, the wrapped
-                    // phase name is fiction -- lateness is the honest
-                    // signal here.
-                    cycle.isLate
-                        ? '${cycle.daysLate} days late'
-                        : cycle.currentPhase,
-                    style: AppTextStyles.sans(
-                      size: 11,
-                      color: AppColors.periodRed,
-                      weight: FontWeight.w600,
+                GestureDetector(
+                  // Task 3.2: unset state prompts for the date; once
+                  // set, the chip shows lateness (task 3.3) or phase.
+                  onTap: cycle.hasPeriodData
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CycleDataScreen(),
+                            ),
+                          );
+                        },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.periodRed.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      cycle.isLate
+                          ? '${cycle.daysLate} days late'
+                          : cycle.hasPeriodData
+                          ? cycle.currentPhase!
+                          : 'Set period date',
+                      style: AppTextStyles.sans(
+                        size: 11,
+                        color: AppColors.periodRed,
+                        weight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -511,27 +528,40 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Task 3.3: the wrapped countdown lies once the period is due or
     // overdue (it restarts at "28d" on the due day), so those states
-    // get their own honest display.
-    final since = cycle.daysSinceLastPeriodStart;
-    final lateDays = cycle.daysLate;
+    // get their own honest display. Task 3.2: with no period date at
+    // all, the cards say so instead of showing wrapped garbage.
     final String nextPeriodValue;
     final String nextPeriodSub;
-    if (lateDays > 0) {
-      nextPeriodValue = 'Late';
-      nextPeriodSub = '$lateDays days late';
-    } else if (since >= cycle.cycleLength) {
-      nextPeriodValue = 'Today';
-      nextPeriodSub = dateLabel(0);
+    final String fertilityValue;
+    final String fertilitySub;
+    if (!cycle.hasPeriodData) {
+      nextPeriodValue = '–';
+      nextPeriodSub = 'Not set yet';
+      fertilityValue = '–';
+      fertilitySub = 'Set your period date';
     } else {
-      nextPeriodValue = '${cycle.daysUntilNextPeriod}d';
-      nextPeriodSub = dateLabel(cycle.daysUntilNextPeriod);
-    }
+      final since = cycle.daysSinceLastPeriodStart;
+      final lateDays = cycle.daysLate;
+      if (lateDays > 0) {
+        nextPeriodValue = 'Late';
+        nextPeriodSub = '$lateDays days late';
+      } else if (since != null && since >= cycle.cycleLength) {
+        nextPeriodValue = 'Today';
+        nextPeriodSub = dateLabel(0);
+      } else {
+        nextPeriodValue = '${cycle.daysUntilNextPeriod}d';
+        nextPeriodSub = dateLabel(cycle.daysUntilNextPeriod ?? 0);
+      }
 
-    final isOvulation = cycle.currentPhase == 'Ovulation';
-    final fertilityLabel = isOvulation ? 'High' : 'Low';
-    final ovulationSubLabel = isOvulation
-        ? 'Fertile window'
-        : 'Ovulation in ${cycle.daysUntilOvulation}d';
+      final isOvulation = cycle.currentPhase == 'Ovulation';
+      final ovu = cycle.daysUntilOvulation;
+      fertilityValue = isOvulation ? 'High' : 'Low';
+      fertilitySub = isOvulation
+          ? 'Fertile window'
+          : ovu == null
+          ? 'Set your period date'
+          : 'Ovulation in ${ovu}d';
+    }
 
     return Row(
       children: [
@@ -548,8 +578,8 @@ class _HomeScreenState extends State<HomeScreen> {
         Expanded(
           child: _statusCard(
             label: 'FERTILITY',
-            value: fertilityLabel,
-            subLabel: ovulationSubLabel,
+            value: fertilityValue,
+            subLabel: fertilitySub,
             accentColor: AppColors.textPrimary,
             useAccent: false,
           ),
@@ -1004,6 +1034,62 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildInsightCard(CycleProvider cycle) {
     final phase = cycle.currentPhase;
+    // Task 3.2: with no period date there is no phase to describe --
+    // a quiet hint instead of a fabricated "null Phase" card.
+    if (phase == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.textSecondary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No cycle data yet',
+                    style: AppTextStyles.sans(
+                      size: 14,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Set your last period start date in Settings to see '
+                    'phase insights here.',
+                    style: AppTextStyles.sans(
+                      size: 12,
+                      color: AppColors.textSecondary,
+                    ).copyWith(height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final phaseInfo = _phaseDetails(phase);
     final iconData = _phaseIconData(phase);
     final IconData phaseIcon = iconData['icon'] as IconData;

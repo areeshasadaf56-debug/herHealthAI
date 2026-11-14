@@ -14,7 +14,9 @@ class CycleDataScreen extends StatefulWidget {
 class _CycleDataScreenState extends State<CycleDataScreen> {
   late int _cycleLength;
   late int _periodDuration;
-  late DateTime _lastPeriodStart;
+  // Task 3.2: null while the user hasn't set a period start yet -- the
+  // row shows "Not set" and the picker opens on today.
+  DateTime? _lastPeriodStart;
 
   @override
   void initState() {
@@ -46,7 +48,8 @@ class _CycleDataScreenState extends State<CycleDataScreen> {
   Future<void> _pickLastPeriodStart() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _lastPeriodStart,
+      // Task 3.2: nothing recorded yet -> open the picker on today.
+      initialDate: _lastPeriodStart ?? DateTime.now(),
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now(),
       builder: (context, child) {
@@ -104,10 +107,15 @@ class _CycleDataScreenState extends State<CycleDataScreen> {
                         ),
                       ),
                       Text(
-                        _formatDate(_lastPeriodStart),
+                        _lastPeriodStart == null
+                            ? 'Not set'
+                            : _formatDate(_lastPeriodStart!),
                         style: AppTextStyles.sans(
                           size: 13,
-                          color: AppColors.primary,
+                          // Task 3.2: unset state reads as muted text.
+                          color: _lastPeriodStart == null
+                              ? AppColors.textSecondary
+                              : AppColors.primary,
                         ),
                       ),
                       const SizedBox(width: 6),

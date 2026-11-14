@@ -67,7 +67,7 @@ void main() {
     expect(prefs.getString('cycleLegacyMigratedBy'), 'uid-first');
 
     // And the provider now reflects the migrated account data.
-    expect(provider.cycleData.lastPeriodStart.millisecondsSinceEpoch, 123000);
+    expect(provider.cycleData.lastPeriodStart!.millisecondsSinceEpoch, 123000);
     expect(provider.cycleData.cycleLength, 26);
     expect(provider.remindersEnabled, false);
   });
@@ -100,11 +100,9 @@ void main() {
     expect(second.cycleData.cycleLength, 28, reason: 'default, not 33');
     expect(second.userName, 'Second');
     expect(second.dailyLogs, isEmpty);
-    expect(
-      second.cycleData.lastPeriodStart.day,
-      isNot(2),
-      reason: 'not the first account period date 2026-02-02',
-    );
+    // Task 3.2: a blank account has NO period date at all -- never the
+    // first account's 2026-02-02, and never a fabricated placeholder.
+    expect(second.cycleData.lastPeriodStart, isNull);
   });
 
   test('"Remove cycle data & log out" wipes scoped + legacy + marker + '

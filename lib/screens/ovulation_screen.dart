@@ -3,6 +3,7 @@ import '../l10n/app_text.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/cycle_provider.dart';
+import 'cycle_data_screen.dart';
 
 class OvulationScreen extends StatelessWidget {
   const OvulationScreen({super.key});
@@ -31,6 +32,25 @@ class OvulationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cycle = context.watch<CycleProvider>();
     final day = cycle.currentCycleDay;
+
+    // Task 3.2: with no recorded period start there is no cycle math
+    // to show -- prompt for the date instead of inventing day numbers.
+    if (day == null) {
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(cycle),
+              const SizedBox(height: 60),
+              _unsetPeriodPrompt(context),
+            ],
+          ),
+        ),
+      );
+    }
+
     final cycleLength = cycle.cycleLength;
     // Task 3.1: the model owns the ovulation-day formula now (this
     // screen used to keep its own copy that disagreed with getPhase).
@@ -105,6 +125,65 @@ class OvulationScreen extends StatelessWidget {
         size: 11,
         weight: FontWeight.w600,
         color: AppColors.textSecondary,
+      ),
+    );
+  }
+
+  /// Task 3.2: shown while no period start is recorded. Plain guidance
+  /// plus the path to the editor -- no invented predictions.
+  Widget _unsetPeriodPrompt(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Set period date',
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CycleDataScreen()),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Column(
+            children: [
+              const Text('🩸', style: TextStyle(fontSize: 28)),
+              const SizedBox(height: 10),
+              Text(
+                'Set your last period start date to see fertility and '
+                'phase predictions here.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.sans(
+                  size: 13,
+                  color: AppColors.textPrimary,
+                ).copyWith(height: 1.4),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Set period date',
+                  style: AppTextStyles.sans(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -223,7 +302,9 @@ class OvulationScreen extends StatelessWidget {
   }
 
   Widget _buildStatCards(CycleProvider cycle, int ovulationDay) {
-    final day = cycle.currentCycleDay;
+    // Caller (build) returns early while no period date is recorded,
+    // so the day is always set here (task 3.2).
+    final day = cycle.currentCycleDay!;
     final daysToOvulation = ovulationDay - day;
 
     // Calendar-day arithmetic (task 3.4): adding a raw Duration can
