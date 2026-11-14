@@ -48,6 +48,9 @@ dependencies:
   # AI Check-in: attaching documents/images to a chat message.
   file_picker: ^8.1.2
   flutter_secure_storage: ^10.3.4
+  # Crisis banner: opens support-resource links (befrienders.org) in the
+  # system browser. Approved dependency (task 4.4).
+  url_launcher: ^6.3.0
 
  
 dev_dependencies:

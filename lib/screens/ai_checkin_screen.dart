@@ -13,6 +13,9 @@ import '../services/health_profile_service.dart';
 import '../services/ai_service.dart';
 import '../services/chat_nav_hints.dart';
 import '../services/chat_profile_updates.dart';
+import '../services/safety_filter.dart';
+import '../services/support_resources.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'health_diary_screen.dart';
 import 'sign_in_screen.dart';
 
@@ -499,6 +502,12 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       _sendFailed = false;
       _navHint = null;
       _pendingAttachment = null;
+      // Client-side safety net (task 4.4): when the user's own words
+      // contain crisis signals, show the support banner IMMEDIATELY --
+      // without waiting for the server round-trip, and even if the
+      // request fails. The backend's crisis_concern flag still triggers
+      // the banner independently below.
+      if (containsCrisisSignal(text)) _showCrisisBanner = true;
     });
 
     // Live privacy at send time: the profile the request is built from
@@ -1011,22 +1020,76 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'If things feel like too much right now, please consider reaching '
-            'out to a crisis helpline in your area, or to someone you trust.',
+            tr(
+              'If things feel like too much right now, please consider '
+              'reaching out to a crisis helpline in your area, or to '
+              'someone you trust.',
+            ),
             style: AppTextStyles.sans(
               size: 12,
               color: AppColors.textSecondary,
             ).copyWith(height: 1.5),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Befrienders Worldwide (befrienders.org) lists crisis lines by country.',
-            style: AppTextStyles.sans(
-              size: 11,
-              color: AppColors.periodRed,
-            ).copyWith(fontStyle: FontStyle.italic),
-          ),
+          ..._crisisResourceRows(),
         ],
+      ),
+    );
+  }
+
+  /// Tappable rows for the vetted support resources (task 4.4). Each
+  /// opens in the system browser; a failed launch falls back to a
+  /// SnackBar that still shows the URL, so the resource is never
+  /// unreachable.
+  List<Widget> _crisisResourceRows() {
+    return kCrisisSupportResources.map((resource) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _launchSupportResource(resource),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+            child: Row(
+              children: [
+                Icon(Icons.open_in_new, size: 13, color: AppColors.periodRed),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    tr(resource.label),
+                    style: AppTextStyles.sans(
+                      size: 11,
+                      color: AppColors.periodRed,
+                    ).copyWith(fontStyle: FontStyle.italic),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  Future<void> _launchSupportResource(SupportResource resource) async {
+    // Capture across the await (same pattern as the privacy screen).
+    final messenger = ScaffoldMessenger.of(context);
+    final uri = Uri.tryParse(resource.url);
+    if (uri == null) return;
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launched) return;
+    } catch (_) {
+      // Fall through to the SnackBar fallback below.
+    }
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          "Couldn't open the link. Visit ${resource.url} in your browser.",
+        ),
       ),
     );
   }
