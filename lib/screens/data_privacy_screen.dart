@@ -366,11 +366,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        Switch(
-          value: value,
-          activeThumbColor: AppColors.primary,
-          onChanged: onChanged,
-        ),
+        Switch(value: value, onChanged: onChanged),
       ],
     );
   }

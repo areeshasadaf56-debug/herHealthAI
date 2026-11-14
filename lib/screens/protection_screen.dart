@@ -2320,7 +2320,6 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
     final isSupported = _apiConditionIds.contains(c.id);
     return CheckboxListTile(
       value: selected,
-      activeColor: AppColors.primary,
       controlAffinity: ListTileControlAffinity.leading,
       title: Opacity(
         opacity: isSupported ? 1.0 : 0.4,

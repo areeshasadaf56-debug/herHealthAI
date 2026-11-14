@@ -1564,7 +1564,6 @@ class _PrivacySheetState extends State<_PrivacySheet> {
                 const SizedBox(width: 8),
                 Switch(
                   value: settings.aiCanAccessDiary,
-                  activeThumbColor: AppColors.primary,
                   onChanged: (v) => _toggle(field: 'diary', value: v),
                 ),
               ],
@@ -1601,7 +1600,6 @@ class _PrivacySheetState extends State<_PrivacySheet> {
                 const SizedBox(width: 8),
                 Switch(
                   value: settings.aiMemoryEnabled,
-                  activeThumbColor: AppColors.primary,
                   onChanged: (v) => _toggle(field: 'memory', value: v),
                 ),
               ],

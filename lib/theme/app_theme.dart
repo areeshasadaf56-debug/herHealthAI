@@ -273,6 +273,9 @@ ThemeData buildAppTheme() {
       ),
     ),
 
+    // THE switch style for the whole app (task 2.1). No screen may pass
+    // activeThumbColor / activeColor-style overrides -- every Switch and
+    // SwitchListTile renders through this.
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith<Color?>(
         (states) => states.contains(WidgetState.selected)

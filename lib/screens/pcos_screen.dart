@@ -931,11 +931,7 @@ class _PcosScreenState extends State<PcosScreen> {
               label,
               style: AppTextStyles.sans(size: 13, color: AppColors.textPrimary),
             ),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              activeThumbColor: AppColors.ovulationTeal,
-            ),
+            Switch(value: value, onChanged: onChanged),
           ],
         ),
       ),

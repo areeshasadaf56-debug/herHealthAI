@@ -333,7 +333,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           Switch(
             value: cycle.remindersEnabled,
-            activeThumbColor: AppColors.primary,
             onChanged: (val) {
               context.read<CycleProvider>().toggleReminders(val);
             },

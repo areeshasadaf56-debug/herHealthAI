@@ -463,12 +463,14 @@ class _DoctorVisitNotesCardState extends State<DoctorVisitNotesCard> {
             setState(() => _femaleDoctor = v);
             _saveLocal();
           }),
-          _switchRow('I\'d prefer an external (abdominal) scan first', _externalScan, (
-            v,
-          ) {
-            setState(() => _externalScan = v);
-            _saveLocal();
-          }),
+          _switchRow(
+            'I\'d prefer an external (abdominal) scan first',
+            _externalScan,
+            (v) {
+              setState(() => _externalScan = v);
+              _saveLocal();
+            },
+          ),
 
           const SizedBox(height: 18),
           _label('QUESTIONS TO ASK (TAP TO ADD)'),
@@ -522,7 +524,9 @@ class _DoctorVisitNotesCardState extends State<DoctorVisitNotesCard> {
                   const SizedBox(height: 10),
                   SelectableText(
                     _script!,
-                    style: AppTextStyles.sans(size: 13.5).copyWith(height: 1.65),
+                    style: AppTextStyles.sans(
+                      size: 13.5,
+                    ).copyWith(height: 1.65),
                   ),
                   const SizedBox(height: 14),
                   SizedBox(
@@ -626,7 +630,6 @@ class _DoctorVisitNotesCardState extends State<DoctorVisitNotesCard> {
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      activeThumbColor: AppColors.primary,
       title: Text(text, style: AppTextStyles.sans(size: 13)),
       value: value,
       onChanged: onChanged,
