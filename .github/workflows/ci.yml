@@ -1,0 +1,23 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Same pinned version as build.yml -- analyze/test must run against
+      # exactly what release builds with.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: 'stable'
+          cache: true
+      - run: flutter pub get
+      # Infos stay non-fatal (one legacy deprecation is tracked in the
+      # review backlog); warnings and errors do fail the job.
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test --reporter expanded

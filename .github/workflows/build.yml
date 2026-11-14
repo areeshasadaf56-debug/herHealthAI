@@ -1,17 +1,51 @@
-name: Build APK
+name: Build release artifacts
 on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Pinned instead of '3.x': a surprise stable bump can break the
+      # build (gradle/AGP/API changes) with no warning. Bump this on
+      # purpose, locally verified, when upgrading Flutter.
+      # 3.41.7 = the stable the project currently builds with (Dart 3.11.5,
+      # matching pubspec's sdk constraint ^3.11.5).
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
+          flutter-version: '3.41.7'
+          channel: 'stable'
       - run: flutter pub get
 
+      # Loud failure BEFORE any build step: without these secrets the
+      # gradle release config silently falls back to the debug key (see
+      # android/app/build.gradle.kts), and a debug-signed "release"
+      # would ship. Fail the job with a clear message instead.
+      - name: Check signing secrets are configured
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          missing=0
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing signing secret::$name is not set. Add it under Settings > Secrets and variables > Actions -- otherwise the release build would silently fall back to the debug key."
+              missing=1
+            fi
+          done
+          exit $missing
+
       - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          # A corrupt or truncated secret would decode to an empty/short
+          # file and fail only much later (or worse, sign nothing). Catch
+          # it here.
+          if [ ! -s android/app/upload-keystore.jks ]; then
+            echo "::error title=Bad keystore secret::KEYSTORE_BASE64 decoded to an empty file."
+            exit 1
+          fi
 
       - name: Create key.properties
         run: |
@@ -21,8 +55,13 @@ jobs:
           echo "storeFile=upload-keystore.jks" >> android/key.properties
 
       - run: flutter build apk --release
+      - run: flutter build appbundle --release
 
       - uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-appbundle
+          path: build/app/outputs/bundle/release/app-release.aab
