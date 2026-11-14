@@ -121,15 +121,26 @@ class _HomeShellState extends State<HomeShell>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: FadeTransition(
-          opacity: Tween<double>(begin: 0.55, end: 1.0)
-              .animate(_switchAnimation),
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.012),
-              end: Offset.zero,
-            ).animate(_switchAnimation),
-            child: IndexedStack(index: _tabIndex, children: tabs),
+        // Task 2.3: content cap. On phones (and anything narrower) the
+        // screens keep filling the available width; on tablets/desktop
+        // the readable column is centered at 640px instead of
+        // stretching edge to edge.
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: FadeTransition(
+              opacity: Tween<double>(
+                begin: 0.55,
+                end: 1.0,
+              ).animate(_switchAnimation),
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.012),
+                  end: Offset.zero,
+                ).animate(_switchAnimation),
+                child: IndexedStack(index: _tabIndex, children: tabs),
+              ),
+            ),
           ),
         ),
       ),
@@ -141,68 +152,75 @@ class _HomeShellState extends State<HomeShell>
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: SafeArea(
           top: false,
-          child: Row(
-            children: List.generate(_navItems.length, (i) {
-              final item = _navItems[i];
-              final active = _tabIndex == i;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => _changeTab(i),
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 3,
-                      vertical: 6,
-                    ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      padding: const EdgeInsets.symmetric(vertical: 5),
-                      decoration: BoxDecoration(
-                        color: active
-                            ? AppColors.primary.withValues(alpha: 0.10)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AnimatedScale(
-                            scale: active ? 1.12 : 1.0,
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOut,
-                            child: Icon(
-                              item.icon,
-                              size: 18,
-                              color: active
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                            ),
+          // Same 640px cap as the body so the nav row doesn't smear one
+          // item into every corner of a desktop window.
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Row(
+                children: List.generate(_navItems.length, (i) {
+                  final item = _navItems[i];
+                  final active = _tabIndex == i;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => _changeTab(i),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 3,
+                          vertical: 6,
+                        ),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          decoration: BoxDecoration(
+                            color: active
+                                ? AppColors.primary.withValues(alpha: 0.10)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            item.shortLabel,
-                            style: AppTextStyles.sans(
-                              size: 7.5,
-                              weight: active
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              color: active
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              AnimatedScale(
+                                scale: active ? 1.12 : 1.0,
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeOut,
+                                child: Icon(
+                                  item.icon,
+                                  size: 18,
+                                  color: active
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                item.shortLabel,
+                                style: AppTextStyles.sans(
+                                  size: 7.5,
+                                  weight: active
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                  color: active
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            }),
+                  );
+                }),
+              ),
+            ),
           ),
         ),
       ),
