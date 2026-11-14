@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 import '../l10n/app_text.dart';
 import '../theme/app_theme.dart';
+import '../config/disclosures.dart';
 import '../models/health_profile.dart';
 import '../providers/cycle_provider.dart';
 import '../services/auth_session.dart';
@@ -235,7 +236,12 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Your period, symptom, and mood logs live only on this device. A couple of optional health tools in the app do send the specific values you enter to our server — see below for exactly what and when.',
+                        'Your daily period, symptom, and mood logs stay on '
+                        'this device. Some other data — like your profile '
+                        'and AI conversations — syncs to the Wellness '
+                        'Saheli server when you\'re signed in, and check-in '
+                        'messages are processed by $kAiProviderName. '
+                        'Exactly what goes where is described below.',
                         style: AppTextStyles.sans(
                           size: 12,
                           color: AppColors.textPrimary,
@@ -247,28 +253,77 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
               ),
               const SizedBox(height: 24),
               _section(
-                'What We Store',
-                'Period start and end dates, cycle length settings, symptoms you log, moods you log, and reminder preferences. All of this is saved locally in the app\'s own storage on your phone — the same way notes or offline apps keep data on your device.',
+                'What Stays on This Device',
+                'Your daily logs — period dates, symptoms, moods, and '
+                    'reminder preferences — are saved only in the app\'s own '
+                    'storage on your phone, the same way notes or offline '
+                    'apps keep data on your device. They are not uploaded '
+                    'anywhere.',
               ),
               _section(
-                'What Is Sent to Our Server',
-                'Two tools in this app — the PCOS screening check and the contraceptive eligibility checker — need a server to calculate your result. When you use them, only the specific values you enter on that screen (like the health details you type into the PCOS form, or the conditions you select in My Plan) are sent for that one calculation. We don\'t attach your name, cycle history, or any other data to these requests, and results aren\'t stored on the server afterward.',
+                'What Syncs to the Server',
+                'When you\'re signed in, the app keeps a private copy of '
+                    'your health profile on the Wellness Saheli server so '
+                    'your data follows you across devices. That copy '
+                    'includes: the profile details you enter (name, age, '
+                    'demographics), lifestyle and contraception history, '
+                    'cycle settings, your PCOS check results, your '
+                    'eligibility check results, mental-health check answers, '
+                    'your diary entries, and your AI conversation history. '
+                    'The PCOS screening check and the contraceptive '
+                    'eligibility checker also send the specific values you '
+                    'enter on those screens to calculate a result — and that '
+                    'result is saved in your profile history.',
+              ),
+              _section(
+                'AI Check-Ins',
+                'When you message Saheli AI, your message is sent to the '
+                    'Wellness Saheli server and processed by $kAiProviderName. '
+                    'If "AI remembers past conversations" is on, earlier '
+                    'check-in messages are included as context; if "AI can '
+                    'read my diary" is on, your recent diary entries are '
+                    'included too. Everything you exchange stays in your AI '
+                    'conversation history — part of the synced profile '
+                    'described above — until you delete it with "Clear AI '
+                    'memory", the per-message delete in the AI check-in, or '
+                    '"Delete my data from the server".',
               ),
               _section(
                 'Account & Login',
-                'Creating an account lets you use the app and keeps your name in sync across screens. Your login details are currently stored on your device only, not on a server.',
+                'Creating an account stores your name, email, and login '
+                    'credentials on the Wellness Saheli server, so you can '
+                    'sign in again later. Signing up requires verifying your '
+                    'email with a 6-digit code. Your sign-in session itself '
+                    'is kept on this device, and signing out invalidates it.',
               ),
               _section(
                 'What We Don\'t Do',
-                'We don\'t run analytics that identify you personally, and we don\'t sell or share your health data with advertisers.',
+                // OWNER: these are business-policy promises an owner must
+                // stand behind; the code review can only verify that the
+                // app and backend make no analytics/ad calls.
+                'We don\'t run advertising or third-party analytics in '
+                    'the app, and we don\'t sell or share your health data '
+                    'with advertisers.',
               ),
               _section(
                 'Why We Ask for This Data',
-                'Cycle dates, symptoms, and mood logs are used only to power the predictions and insights inside the app — like your current cycle day, upcoming period estimate, and fertility window. None of it leaves your device to do this.',
+                'Cycle dates, symptoms, and moods you log power the '
+                    'predictions and insights inside the app — your current '
+                    'cycle day, upcoming period estimate, and fertility '
+                    'window — and those are computed on this device. What '
+                    'else can read that data is described above (the AI '
+                    'check-in, only when you turn its toggles on).',
               ),
               _section(
                 'Your Control',
-                'You can edit or delete your cycle data at any time from Settings → Cycle Data. Uninstalling the app removes all locally stored data along with it, since nothing is backed up to an external server by default.',
+                'You can edit or delete your cycle data any time from '
+                    'Settings → Cycle Data, and delete individual entries '
+                    'from the Health Diary timeline. Here you can clear the '
+                    'AI memory and delete diary entries. If you\'re signed '
+                    'in, "Delete my data from the server" below erases the '
+                    'server copy of your profile and clears this device\'s '
+                    'data too. Uninstalling the app removes what\'s stored '
+                    'on this device.',
               ),
               _section(
                 'If You Share Your Device',
@@ -278,6 +333,16 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 const SizedBox(height: 24),
                 _serverDataSection(),
               ],
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  'Privacy summary last updated $kPolicyLastUpdated',
+                  style: AppTextStyles.sans(
+                    size: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
             ],
           ),
@@ -400,7 +465,9 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Control what Saheli AI is allowed to remember and read about you.',
+            'Control what Saheli AI is allowed to remember and read about '
+            'you. Check-in messages are sent to the Wellness Saheli '
+            'server and processed by $kAiProviderName.',
             style: AppTextStyles.sans(
               size: 12,
               color: AppColors.textSecondary,
@@ -412,7 +479,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
             title: 'AI can read my diary',
             subtitle:
                 'When on, Saheli AI may reference your diary entries during '
-                'check-ins to give more relevant guidance. Off by default.',
+                'check-ins to give more relevant guidance.',
             value: settings.aiCanAccessDiary,
             onChanged: _setAiCanAccessDiary,
           ),
