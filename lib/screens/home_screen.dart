@@ -505,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final fertilityLabel = isOvulation ? 'High' : 'Low';
     final ovulationSubLabel = isOvulation
         ? 'Fertile window'
-        : 'Ovulation in ${_daysUntilOvulation(cycle)}d';
+        : 'Ovulation in ${cycle.daysUntilOvulation}d';
 
     return Row(
       children: [
@@ -530,12 +530,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
-  }
-
-  int _daysUntilOvulation(CycleProvider cycle) {
-    final ovulationDay = (cycle.cycleLength / 2).floor();
-    final diff = ovulationDay - cycle.currentCycleDay;
-    return diff > 0 ? diff : cycle.cycleLength + diff;
   }
 
   Widget _statusCard({

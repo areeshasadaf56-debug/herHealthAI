@@ -95,4 +95,60 @@ void main() {
       expect(data.daysUntilNextPeriod(), inInclusiveRange(1, 28));
     });
   });
+
+  group('ovulation day + phase boundaries (task 3.1)', () {
+    final data = CycleData(
+      lastPeriodStart: DateTime(2026, 10, 18),
+      cycleLength: 28,
+    );
+
+    test('ovulationDay is mid-cycle, floored', () {
+      expect(data.ovulationDay, 14);
+      expect(
+        CycleData(
+          lastPeriodStart: DateTime(2026, 1, 1),
+          cycleLength: 21,
+        ).ovulationDay,
+        10,
+      );
+      expect(
+        CycleData(
+          lastPeriodStart: DateTime(2026, 1, 1),
+          cycleLength: 35,
+        ).ovulationDay,
+        17,
+      );
+    });
+
+    test('phase boundaries for a 28-day cycle (5-day period)', () {
+      // Menstrual 1-5, Follicular 6-13, Ovulation 14-15, Luteal 16-28.
+      expect(data.getPhaseOn(1), 'Menstrual');
+      expect(data.getPhaseOn(5), 'Menstrual');
+      expect(data.getPhaseOn(6), 'Follicular');
+      expect(data.getPhaseOn(13), 'Follicular');
+      expect(data.getPhaseOn(14), 'Ovulation');
+      expect(data.getPhaseOn(15), 'Ovulation');
+      expect(data.getPhaseOn(16), 'Luteal');
+      expect(data.getPhaseOn(28), 'Luteal');
+    });
+
+    test('Ovulation phase == the days the ovulation screen highlights', () {
+      // Consolidation pin (task 3.1): getPhase used to place Ovulation
+      // at days 15-16 while the ovulation screen marked 14-15 -- two
+      // different answers from two copies of the same formula.
+      expect(data.getPhaseOn(data.ovulationDay), 'Ovulation');
+      expect(data.getPhaseOn(data.ovulationDay + 1), 'Ovulation');
+      expect(data.getPhaseOn(data.ovulationDay + 2), 'Luteal');
+    });
+
+    test('daysUntilOvulationOn counts down to ovulation, then wraps', () {
+      // Oct 18 start -> day 1. Ovulation day 14 falls on Oct 31.
+      expect(data.daysUntilOvulationOn(DateTime(2026, 10, 18)), 13);
+      expect(data.daysUntilOvulationOn(DateTime(2026, 10, 31)), 0);
+      // Oct 31 -> Nov 1 crosses the US fall-back; UTC-anchored math
+      // keeps the day count exact.
+      expect(data.daysUntilOvulationOn(DateTime(2026, 11, 1)), 27);
+      expect(data.daysUntilOvulationOn(DateTime(2026, 11, 2)), 26);
+    });
+  });
 }

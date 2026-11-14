@@ -32,8 +32,11 @@ class OvulationScreen extends StatelessWidget {
     final cycle = context.watch<CycleProvider>();
     final day = cycle.currentCycleDay;
     final cycleLength = cycle.cycleLength;
-    final ovulationDay = (cycleLength / 2).floor();
+    // Task 3.1: the model owns the ovulation-day formula now (this
+    // screen used to keep its own copy that disagreed with getPhase).
+    final ovulationDay = cycle.ovulationDay;
     final periodDuration = cycle.periodDuration;
+    final phase = cycle.currentPhase;
 
     // Fertility level 0.0 - 1.0, peaks around ovulation day
     final distanceFromOvulation = (day - ovulationDay).abs();
@@ -61,15 +64,15 @@ class OvulationScreen extends StatelessWidget {
               days: 'Days 1–$periodDuration',
               description:
                   'The uterine lining, built up over the previous cycle, breaks down and sheds through the vagina as your period. Both estrogen and progesterone are at their lowest point of the entire cycle, which is why fatigue, low mood, and low motivation are common in these first few days. Prostaglandins trigger the uterus to contract, causing cramping that can radiate to the lower back and thighs. Bleeding is typically heaviest on days 1–2 and tapers off after. Fertility is essentially at zero right now since no egg is developing yet. Iron-rich foods, warmth on the abdomen, and gentle movement like walking can ease symptoms.',
-              isActive: day <= periodDuration,
+              isActive: phase == 'Menstrual',
               color: AppColors.periodRed,
             ),
             _phaseRow(
               title: 'Follicular',
-              days: 'Days 1–$ovulationDay',
+              days: 'Days 1–${ovulationDay - 1}',
               description:
                   'This phase technically overlaps with menstruation but continues after bleeding stops. The pituitary gland releases FSH (follicle-stimulating hormone), prompting a group of follicles in the ovaries to grow, each containing an immature egg. As they develop, estrogen rises steadily, which is what causes energy, mood, and mental clarity to noticeably improve as this phase progresses. The uterine lining begins rebuilding itself in preparation for a possible pregnancy. Toward the end of this phase, one dominant follicle outpaces the rest and prepares to release its egg, and fertility climbs sharply in the final few days leading into ovulation.',
-              isActive: day > periodDuration && day <= ovulationDay,
+              isActive: phase == 'Follicular',
               color: AppColors.symptomOrange,
             ),
             _phaseRow(
@@ -77,7 +80,7 @@ class OvulationScreen extends StatelessWidget {
               days: 'Day $ovulationDay (avg)',
               description:
                   'A sharp surge in luteinizing hormone (LH), triggered by peak estrogen, causes the dominant follicle to rupture and release its egg into the fallopian tube. The egg itself only survives 12–24 hours, making this technically the single most fertile day of the cycle. However, because sperm can survive in the reproductive tract for 3–5 days, the fertile window effectively spans the 5 days before ovulation through the day itself — about 6 days total. Many people notice physical signs here: clear, stretchy cervical mucus (similar to raw egg white), a slight rise in basal body temperature, mild one-sided pelvic twinges, and a boost in energy, libido, and confidence as estrogen and testosterone both peak.',
-              isActive: day == ovulationDay || day == ovulationDay + 1,
+              isActive: phase == 'Ovulation',
               color: AppColors.ovulationTeal,
             ),
             _phaseRow(
@@ -85,7 +88,7 @@ class OvulationScreen extends StatelessWidget {
               days: 'Days ${ovulationDay + 2}–$cycleLength',
               description:
                   'After the egg is released, the ruptured follicle transforms into a temporary structure called the corpus luteum, which produces progesterone to thicken and stabilize the uterine lining in case a fertilized egg implants. If pregnancy doesn\'t occur, the corpus luteum breaks down around 10–14 days later, causing both estrogen and progesterone to fall sharply — this hormonal drop is what triggers PMS symptoms like bloating, breast tenderness, irritability, food cravings, and low mood in the days before your period. Fertility declines steadily through this phase since ovulation has already happened. Once hormone levels bottom out, the uterine lining sheds and the cycle begins again.',
-              isActive: day > ovulationDay + 1,
+              isActive: phase == 'Luteal',
               color: AppColors.primary,
             ),
             const SizedBox(height: 16),
@@ -200,7 +203,15 @@ class OvulationScreen extends StatelessWidget {
     final day = cycle.currentCycleDay;
     final daysToOvulation = ovulationDay - day;
 
-    final ovulationDate = DateTime.now().add(Duration(days: daysToOvulation));
+    // Calendar-day arithmetic (task 3.4): adding a raw Duration can
+    // land a day off across a DST transition; the DateTime constructor
+    // normalizes the day overflow instead.
+    final now = DateTime.now();
+    final ovulationDate = DateTime(
+      now.year,
+      now.month,
+      now.day + daysToOvulation,
+    );
     const months = [
       'Jan',
       'Feb',

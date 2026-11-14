@@ -50,6 +50,11 @@ class CycleProvider extends ChangeNotifier {
   int get cycleLength => _cycleData.cycleLength;
   int get periodDuration => _cycleData.periodDuration;
 
+  /// Single source of truth lives on CycleData (task 3.1); screens
+  /// read it through here instead of recomputing the formula.
+  int get ovulationDay => _cycleData.ovulationDay;
+  int get daysUntilOvulation => _cycleData.daysUntilOvulation;
+
   bool get remindersEnabled => _remindersEnabled;
 
   bool get isLoggedIn => _isLoggedIn;
