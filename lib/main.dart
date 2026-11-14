@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'l10n/language_fab.dart';
 import 'l10n/language_provider.dart';
@@ -9,6 +10,11 @@ import 'theme/app_theme.dart';
 import 'providers/cycle_provider.dart';
 
 void main() {
+  // All faces the UI renders are bundled under assets/fonts (Fredoka +
+  // Nunito, see pubspec). Never reach out to fonts.gstatic.com at
+  // runtime: offline first paint, and a missing variant falls back to
+  // the platform font instead of hanging on a download (task 5.5).
+  GoogleFonts.config.allowRuntimeFetching = false;
   runApp(const WellnessSaheliApp());
 }
 
