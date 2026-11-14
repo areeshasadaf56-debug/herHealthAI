@@ -66,3 +66,18 @@ cycle surface), so these are the only two paths.
 
 No medical range was changed by task 3.5: the provider clamp only
 enforces the bounds the tracker UI already declared.
+
+## 5. Deletion candidates the owner chose to keep (task 6.1)
+
+The review pass flagged three files for cleanup; the owner decided to
+KEEP them all for now, so they stay in the repo:
+
+- `flutter_01.png` (root; plus similar root artifacts `flutter_02.png`
+  and `flutter_01.log` found during 6.1)
+- `docs/WELLNESS_SAHELI_UML_DOCUMENTATION (1).md` (duplicated file name)
+- `lib/server/requirement.txt` (suspected duplicate of the backend's
+  requirements file)
+
+**Question for a later pass:** are any of these worth deleting (and is
+`lib/server/` itself still meaningful)? Deleting anything here remains
+an owner call.
