@@ -58,6 +58,33 @@ class _CountingClient extends http.BaseClient {
   }
 }
 
+/// Records every request (`"METHOD url"`); GET answers 404 with a blank
+/// profile, PUT answers 200, and DELETE answers [deleteStatus] -- enough
+/// to exercise the server-deletion flow and its resurrection guard.
+class _DeleteTestClient extends http.BaseClient {
+  final int deleteStatus;
+  final List<String> calls = [];
+
+  _DeleteTestClient(this.deleteStatus);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final isRequest = request is http.Request;
+    calls.add('${request.method} ${request.url}');
+    final status = isRequest && request.method == 'DELETE'
+        ? deleteStatus
+        : isRequest && request.method == 'GET'
+        ? 404
+        : 200;
+    final body = isRequest && request.method == 'DELETE'
+        ? jsonEncode({'status': 'deleted'})
+        : isRequest && request.method == 'GET'
+        ? jsonEncode(_blankProfileJson())
+        : '{}';
+    return http.StreamedResponse(Stream.value(utf8.encode(body)), status);
+  }
+}
+
 Map<String, dynamic> _blankProfileJson() => {
   'user_id': 'device-id',
   'demographics': <String, dynamic>{},
@@ -203,5 +230,81 @@ void main() {
     await AuthSession.update(userId: 'identity-A4', token: 'tok-A4');
     final forA = await service.loadProfile();
     expect(forA.diaryEntries.map((e) => e.text), contains("A's private entry"));
+  });
+
+  test('deleteServerProfile succeeds (200), discards the cached copy, and '
+      'never re-uploads it afterwards', () async {
+    final client = _DeleteTestClient(200);
+    HealthProfileService.overrideHttpClient(client);
+    await AuthSession.update(userId: 'delete-A5', token: 'tok-A5');
+    final service = HealthProfileService();
+
+    await service.updateProfile(
+      (p) => p.copyWith(
+        diaryEntries: [DiaryEntry(date: DateTime.now(), text: 'to be deleted')],
+      ),
+    );
+    final error = await service.deleteServerProfile();
+    expect(error, isNull);
+
+    // The DELETE reached the right owner-checked endpoint, AFTER the
+    // queued PUT -- an upload that lands after a delete would
+    // resurrect the profile server-side.
+    expect(
+      client.calls.any(
+        (c) => c.startsWith('DELETE') && c.contains('/profile/delete-A5'),
+      ),
+      isTrue,
+    );
+    final putIndex = client.calls.indexWhere((c) => c.startsWith('PUT'));
+    final deleteIndex = client.calls.indexWhere((c) => c.startsWith('DELETE'));
+    expect(deleteIndex, greaterThan(putIndex));
+
+    // Simulate the caller's logout(removeData: true) local wipe: with
+    // the on-device copy gone, a fresh load must be blank AND must not
+    // push anything -- the deleted profile can never be synced back up.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('health_profile_cache_delete-A5');
+    final after = await service.loadProfile();
+    expect(after.diaryEntries, isEmpty);
+    expect(client.calls.where((c) => c.startsWith('PUT')), hasLength(1));
+  });
+
+  test('deleteServerProfile treats 404 as success (already gone)', () async {
+    HealthProfileService.overrideHttpClient(_DeleteTestClient(404));
+    await AuthSession.update(userId: 'delete-A6', token: 'tok-A6');
+    final error = await HealthProfileService().deleteServerProfile();
+    expect(error, isNull);
+  });
+
+  test('deleteServerProfile reports session-expiry errors and clears the '
+      'stale token', () async {
+    HealthProfileService.overrideHttpClient(_DeleteTestClient(401));
+    await AuthSession.update(userId: 'delete-A7', token: 'tok-A7');
+    final error = await HealthProfileService().deleteServerProfile();
+    expect(error, isNotNull);
+    expect(error, contains('Sign in again'));
+    // Same treatment as the upload path on 401: the dead token is
+    // cleared so nothing keeps attaching it to new requests.
+    expect(AuthSession.isValid, isFalse);
+  });
+
+  test('deleteServerProfile reports server refusals without touching '
+      'local data', () async {
+    HealthProfileService.overrideHttpClient(_DeleteTestClient(500));
+    await AuthSession.update(userId: 'delete-A8', token: 'tok-A8');
+    final service = HealthProfileService();
+    await service.updateProfile(
+      (p) => p.copyWith(
+        diaryEntries: [DiaryEntry(date: DateTime.now(), text: 'kept')],
+      ),
+    );
+    final error = await service.deleteServerProfile();
+    expect(error, isNotNull);
+    expect(error, contains('Nothing was deleted'));
+    // Failure keeps everything exactly as it was: the local copy (and
+    // the server copy) still exists.
+    final after = await service.loadProfile();
+    expect(after.diaryEntries, hasLength(1));
   });
 }

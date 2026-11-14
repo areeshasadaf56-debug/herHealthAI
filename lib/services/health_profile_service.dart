@@ -91,6 +91,11 @@ class HealthProfileService {
   HealthProfile? _nextPush;
   bool _pushDraining = false;
 
+  /// The in-flight drain (upload) task, when one is running. A server
+  /// delete waits for it so an in-flight PUT can't land AFTER the
+  /// DELETE and resurrect the profile server-side.
+  Future<void>? _drainFuture;
+
   /// Queues local profile mutations so concurrent callers can't race.
   /// Every updateProfile/remove* call runs strictly one at a time, and
   /// each reads the FRESH cached profile (never a stale snapshot).
@@ -347,7 +352,7 @@ class HealthProfileService {
     if (syncState.value != ProfileSyncState.pending) {
       syncState.value = ProfileSyncState.pending;
     }
-    unawaited(_drainPushQueue());
+    _drainFuture = _drainPushQueue();
   }
 
   /// Serialized (and newest-only) uploader. Never throws.
@@ -460,6 +465,82 @@ class HealthProfileService {
     final profile = _cachedProfile ?? await _loadFromCache(userId);
     if (profile == null) return;
     _scheduleServerPush(profile);
+  }
+
+  /// Deletes the current identity's whole profile document on the
+  /// server (`DELETE /profile/<user_id>`, owner-checked server-side).
+  ///
+  /// Returns null on success -- including when the server reports there
+  /// was nothing stored (HTTP 404, the "already gone" case) -- or a
+  /// short user-facing error message on failure. The local profile is
+  /// intentionally left untouched on failure (nothing was deleted, so
+  /// the caller must not wipe anything either). On SUCCESS the
+  /// in-memory cache and any queued upload are discarded so nothing
+  /// local can re-push the deleted document back to the server; erasing
+  /// the on-device copy is the caller's job (the Data & Privacy screen
+  /// follows a successful delete with logout(removeData: true), and
+  /// that call also clears the SharedPreferences cache files).
+  ///
+  /// Serialized through the same queue as updateProfile() so a delete
+  /// can't interleave with an in-flight profile mutation, and so no
+  /// queued mutation can run between "delete succeeded" and the
+  /// caller's logout.
+  Future<String?> deleteServerProfile() {
+    return _enqueue(() async {
+      final userId = await _effectiveUserId();
+      await _ensureUserContext(userId);
+
+      // Nothing queued may resurrect the profile after the DELETE:
+      // drop whatever upload is waiting, and let an already in-flight
+      // PUT finish BEFORE deleting, so the final server state is "gone"
+      // either way.
+      _nextPush = null;
+      await (_drainFuture ?? Future<void>.value());
+
+      http.Client? owned;
+      try {
+        final uri = Uri.parse('${ApiConfig.baseUrl}/profile/$userId');
+        final headers = await _authHeaders();
+        final client = _newClient();
+        owned = _testClient == null ? client : null;
+        final response = await client
+            .delete(uri, headers: headers)
+            .timeout(const Duration(seconds: 8));
+
+        if ((response.statusCode >= 200 && response.statusCode < 300) ||
+            response.statusCode == 404) {
+          // Gone (or never existed). Drop the cached copy and identity
+          // so no stale snapshot can be synced back up afterwards.
+          discardCachedProfile();
+          return null;
+        }
+        if (response.statusCode == 401) {
+          // Same treatment as the upload path: the server no longer
+          // accepts this session, so clear the stale token locally
+          // instead of attaching it to every future request.
+          await AuthSession.clear();
+          return 'Your sign-in session has expired, so the server '
+              "couldn't delete your data yet. Sign in again and try "
+              'once more.';
+        }
+        debugPrint(
+          'HealthProfileService: server delete failed '
+          '(HTTP ${response.statusCode}).',
+        );
+        return 'The server refused to delete your data right now '
+            '(HTTP ${response.statusCode}). Nothing was deleted -- '
+            'please try again later.';
+      } on TimeoutException {
+        return "Couldn't reach the server. Your data is unchanged -- "
+            'try again when you have internet.';
+      } catch (e) {
+        debugPrint('HealthProfileService delete error: $e');
+        return "Couldn't reach the server. Your data is unchanged -- "
+            'try again when you have internet.';
+      } finally {
+        owned?.close();
+      }
+    });
   }
 
   /// Fully forgets everything in memory: the cached profile, any queued

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart' hide Text;
+import 'package:provider/provider.dart';
 import '../l10n/app_text.dart';
 import '../theme/app_theme.dart';
 import '../models/health_profile.dart';
+import '../providers/cycle_provider.dart';
+import '../services/auth_session.dart';
 import '../services/health_profile_service.dart';
+import 'sign_in_screen.dart';
 
 class DataPrivacyScreen extends StatefulWidget {
   const DataPrivacyScreen({super.key});
@@ -16,6 +20,14 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
   HealthProfile? _profile;
   bool _loading = true;
 
+  /// Whether a usable session exists. Only a signed-in account has data
+  /// on the server (anonymous, device-only usage never uploads), so the
+  /// server-deletion section is shown only in that case.
+  bool _signedIn = false;
+
+  /// True while the server deletion request is in flight.
+  bool _deletingServerData = false;
+
   @override
   void initState() {
     super.initState();
@@ -23,11 +35,14 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
   }
 
   Future<void> _load() async {
+    await AuthSession.ensureLoaded();
+    final signedIn = AuthSession.isValid;
     final profile = await _service.loadProfile();
     if (!mounted) return;
     setState(() {
       _profile = profile;
       _loading = false;
+      _signedIn = signedIn;
     });
   }
 
@@ -91,6 +106,62 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('All diary entries deleted')));
+  }
+
+  /// Deletes the account's server-side profile copy, then clears the
+  /// on-device data and signs the user out.
+  ///
+  /// The local wipe is part of the success path on purpose: with the
+  /// server copy gone, any remaining local data would be re-uploaded by
+  /// the next background sync. Failure keeps everything (server and
+  /// local) exactly as it was and just reports why.
+  Future<void> _deleteServerData() async {
+    // Capture everything needed across the awaits BEFORE the first one,
+    // so no deactivated-widget access happens after the dialog closes
+    // (same pattern as the Settings logout flow).
+    final provider = context.read<CycleProvider>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirmed = await _showConfirmDialog(
+      title: 'Delete my data from the server?',
+      body:
+          'This permanently deletes the server copy of your health '
+          'profile — including your diary entries, AI conversation '
+          'history, PCOS and eligibility check results, and the profile '
+          'details you\'ve entered. The app\'s local data is removed too, '
+          'and you\'ll be signed out. Your account itself stays '
+          'registered. This can\'t be undone.',
+      confirmLabel: 'Delete my data',
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _deletingServerData = true);
+    try {
+      final error = await _service.deleteServerProfile();
+      if (!mounted) return;
+      if (error != null) {
+        setState(() => _deletingServerData = false);
+        messenger.showSnackBar(SnackBar(content: Text(error)));
+        return;
+      }
+      // Server copy is gone: clear the on-device data and session too,
+      // so nothing local can be synced back up afterwards.
+      await provider.logout(removeData: true);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your data has been deleted from the server and this device',
+          ),
+        ),
+      );
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SignInScreen()),
+        (route) => false,
+      );
+    } finally {
+      if (mounted) setState(() => _deletingServerData = false);
+    }
   }
 
   Future<bool?> _showConfirmDialog({
@@ -203,6 +274,10 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 'If You Share Your Device',
                 'Because data is stored locally, anyone with access to your unlocked phone could open the app and see your logs. If that\'s a concern, consider using your phone\'s built-in app lock or biometric lock features for extra privacy.',
               ),
+              if (_signedIn) ...[
+                const SizedBox(height: 24),
+                _serverDataSection(),
+              ],
               const SizedBox(height: 16),
             ],
           ),
@@ -234,6 +309,74 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
         const SizedBox(width: 12),
         Text(title, style: AppTextStyles.serif(size: 20)),
       ],
+    );
+  }
+
+  /// Danger zone: erase the account's server-side profile copy. Only
+  /// shown when a session exists -- anonymous, device-only usage never
+  /// uploads anything, so there'd be nothing on the server to delete.
+  Widget _serverDataSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.danger.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your Data on the Server',
+            style: AppTextStyles.sans(size: 14, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Your account syncs a private copy of your health profile to '
+            'the Wellness Saheli server — what that includes is described '
+            'above. You can erase that server copy at any time. Deleting '
+            'it also removes this app\'s locally stored data and signs '
+            'you out. Your account itself stays registered.',
+            style: AppTextStyles.sans(
+              size: 12,
+              color: AppColors.textSecondary,
+            ).copyWith(height: 1.5),
+          ),
+          const SizedBox(height: 14),
+          GestureDetector(
+            onTap: _deletingServerData ? null : _deleteServerData,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: _deletingServerData
+                    ? AppColors.danger.withValues(alpha: 0.5)
+                    : AppColors.danger,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: _deletingServerData
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        'Delete my data from the server',
+                        style: AppTextStyles.sans(
+                          size: 13,
+                          weight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
