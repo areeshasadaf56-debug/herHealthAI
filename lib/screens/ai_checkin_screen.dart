@@ -12,6 +12,7 @@ import '../providers/cycle_provider.dart';
 import '../services/health_profile_service.dart';
 import '../services/ai_service.dart';
 import '../services/chat_nav_hints.dart';
+import '../services/chat_profile_updates.dart';
 import 'health_diary_screen.dart';
 import 'sign_in_screen.dart';
 
@@ -70,6 +71,11 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
   ChatNavHint? _navHint;
   String? _errorText;
   bool _needsSignIn = false;
+
+  /// True right after a send failed, so the "Retry" affordance appears
+  /// and the user's text + attachment (restored into the input) can be
+  /// sent again without retyping (task 1.7).
+  bool _sendFailed = false;
 
   // --- Language ---
   // Derived from the app-wide LanguageProvider (the fixed "EN | اردو"
@@ -490,6 +496,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
       _sending = true;
       _errorText = null;
       _needsSignIn = false;
+      _sendFailed = false;
       _navHint = null;
       _pendingAttachment = null;
     });
@@ -562,17 +569,13 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
         sessionId: _currentSessionId,
       );
 
-      HealthProfile? updatedProfile;
-      if (result.profileUpdates != null) {
-        updatedProfile = await _profileService.updateProfile(
-          (p) => _applyStructuredUpdates(p, result.profileUpdates!),
-        );
-      }
-
       if (!mounted) return;
+      // Commit the reply to the UI FIRST. Applying the AI's profile
+      // updates happens afterwards in its own contained step, so a
+      // malformed structured payload can never swallow the answer the
+      // user is waiting for (task 1.7).
       setState(() {
         _messages.add(assistantEntry);
-        if (updatedProfile != null) _profile = updatedProfile;
         _navHint =
             chatNavHintForTab(result.suggestedTab) ??
             detectChatNavHint(userText: text, replyText: result.reply);
@@ -581,11 +584,19 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
         _sending = false;
       });
       _scrollToBottom();
+
+      await _applyProfileUpdates(result.profileUpdates);
     } catch (e) {
       if (!mounted) return;
+      // Restore exactly what the user was sending, so a failed send can
+      // be retried (button below, or just pressing send) without
+      // retyping (task 1.7).
+      _inputController.text = text;
       setState(() {
         _sending = false;
         _needsSignIn = e is AuthRequiredException;
+        _sendFailed = true;
+        _pendingAttachment = attachment;
         _errorText = e is AuthRequiredException
             ? e.message
             : e is ChatServerException
@@ -596,54 +607,57 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
     }
   }
 
-  HealthProfile _applyStructuredUpdates(
-    HealthProfile current,
-    Map<String, dynamic> updates,
-  ) {
-    var result = current;
+  /// Applies the AI's structured profile updates -- allow-listed and
+  /// type-checked by chat_profile_updates.dart -- and offers an Undo
+  /// snackbar afterwards. Any failure here is contained: the reply is
+  /// already on screen and the user's own data is never at risk.
+  Future<void> _applyProfileUpdates(Map<String, dynamic>? rawUpdates) async {
+    if (rawUpdates == null || rawUpdates.isEmpty) return;
+    final updates = sanitizeChatProfileUpdates(rawUpdates);
+    if (updates == null) return;
 
-    final lifestyleUpdate = updates['lifestyle'] as Map<String, dynamic>?;
-    if (lifestyleUpdate != null && lifestyleUpdate.isNotEmpty) {
-      final merged = {...result.lifestyle.toJson(), ...lifestyleUpdate};
-      result = result.copyWith(lifestyle: Lifestyle.fromJson(merged));
-    }
-
-    final mentalHealthUpdate =
-        updates['mental_health'] as Map<String, dynamic>?;
-    final lifeContextUpdate = updates['life_context'] as Map<String, dynamic>?;
-    if ((mentalHealthUpdate != null && mentalHealthUpdate.isNotEmpty) ||
-        (lifeContextUpdate != null && lifeContextUpdate.isNotEmpty)) {
-      final merged = {
-        ...result.mentalHealth.toJson(),
-        ...?mentalHealthUpdate,
-        if (lifeContextUpdate?['financial_stress'] != null)
-          'financial_stress': lifeContextUpdate!['financial_stress'],
-        if (lifeContextUpdate?['relationship_status'] != null)
-          'relationship_status': lifeContextUpdate!['relationship_status'],
-        if (lifeContextUpdate?['relationship_or_marital_difficulty'] != null)
-          'relationship_or_marital_difficulty':
-              lifeContextUpdate!['relationship_or_marital_difficulty'],
-        if (lifeContextUpdate?['family_conflict'] != null)
-          'family_conflict': lifeContextUpdate!['family_conflict'],
-        if (lifeContextUpdate?['support_system_notes'] != null)
-          'support_system_notes': lifeContextUpdate!['support_system_notes'],
-        'last_check_in': DateTime.now().toIso8601String(),
-      };
-      result = result.copyWith(
-        mentalHealth: MentalHealthFlags.fromJson(merged),
+    final previous = _profileService.profileUpdated.value ?? _profile;
+    if (previous == null) return; // no snapshot to undo with
+    try {
+      final updated = await _profileService.updateProfile(
+        (p) => applyChatProfileUpdates(p, updates),
       );
-    }
-
-    final reproUpdate =
-        updates['reproductive_history'] as Map<String, dynamic>?;
-    if (reproUpdate != null && reproUpdate.isNotEmpty) {
-      final merged = {...result.reproductiveHistory.toJson(), ...reproUpdate};
-      result = result.copyWith(
-        reproductiveHistory: ReproductiveHistory.fromJson(merged),
+      if (!mounted) return;
+      setState(() => _profile = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Saheli updated your health profile.'),
+          action: SnackBarAction(
+            label: _language == 'ur' ? 'منسوخ کریں' : 'Undo',
+            onPressed: () => _undoProfileUpdates(previous),
+          ),
+        ),
       );
+    } catch (e) {
+      debugPrint('ai profile update failed: $e');
+      // Reflect whatever state the service actually committed, if any.
+      if (!mounted) return;
+      final committed = _profileService.profileUpdated.value;
+      if (committed != null) setState(() => _profile = committed);
     }
+  }
 
-    return result;
+  /// Undo: restores exactly the three sections the AI was allowed to
+  /// touch, keeping any unrelated changes made in the meantime.
+  Future<void> _undoProfileUpdates(HealthProfile previous) async {
+    try {
+      final restored = await _profileService.updateProfile(
+        (p) => p.copyWith(
+          lifestyle: previous.lifestyle,
+          mentalHealth: previous.mentalHealth,
+          reproductiveHistory: previous.reproductiveHistory,
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _profile = restored);
+    } catch (e) {
+      debugPrint('profile update undo failed: $e');
+    }
   }
 
   Map<String, dynamic> _buildProfileContext() {
@@ -761,6 +775,28 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
                     size: 13,
                     weight: FontWeight.w600,
                     color: _cClay,
+                  ),
+                ),
+              ),
+            // Task 1.7: after a failed send the user's text and
+            // attachment are back in the input -- this just re-sends
+            // them as-is.
+            if (_sendFailed && _errorText != null && !_needsSignIn)
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _sending ? null : _sendMessage,
+                    icon: Icon(Icons.refresh, size: 18, color: _cClay),
+                    label: Text(
+                      _language == 'ur' ? 'دوبارہ کوشش کریں' : 'Retry',
+                      style: AppTextStyles.sans(
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: _cClay,
+                      ),
+                    ),
                   ),
                 ),
               ),
