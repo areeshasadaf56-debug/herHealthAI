@@ -55,6 +55,13 @@ class CycleProvider extends ChangeNotifier {
   int get ovulationDay => _cycleData.ovulationDay;
   int get daysUntilOvulation => _cycleData.daysUntilOvulation;
 
+  /// Late-period state (task 3.3): the wrapped cycle day silently
+  /// restarts once the period is due, so screens surface lateness
+  /// through these instead.
+  int get daysSinceLastPeriodStart => _cycleData.daysSinceLastPeriodStart;
+  bool get isLate => _cycleData.isLate;
+  int get daysLate => _cycleData.daysLate;
+
   bool get remindersEnabled => _remindersEnabled;
 
   bool get isLoggedIn => _isLoggedIn;

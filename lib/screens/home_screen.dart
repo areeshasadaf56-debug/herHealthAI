@@ -464,7 +464,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    cycle.currentPhase,
+                    // Task 3.3: once the period is late, the wrapped
+                    // phase name is fiction -- lateness is the honest
+                    // signal here.
+                    cycle.isLate
+                        ? '${cycle.daysLate} days late'
+                        : cycle.currentPhase,
                     style: AppTextStyles.sans(
                       size: 11,
                       color: AppColors.periodRed,
@@ -481,9 +486,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatusCards(CycleProvider cycle) {
-    final nextPeriodDate = DateTime.now().add(
-      Duration(days: cycle.daysUntilNextPeriod),
-    );
     const months = [
       'Jan',
       'Feb',
@@ -498,8 +500,32 @@ class _HomeScreenState extends State<HomeScreen> {
       'Nov',
       'Dec',
     ];
-    final nextPeriodLabel =
-        '${months[nextPeriodDate.month - 1]} ${nextPeriodDate.day}';
+
+    // Calendar-day arithmetic (task 3.4): raw Duration addition can
+    // drift across a DST transition.
+    final now = DateTime.now();
+    String dateLabel(int daysAhead) {
+      final d = DateTime(now.year, now.month, now.day + daysAhead);
+      return '${months[d.month - 1]} ${d.day}';
+    }
+
+    // Task 3.3: the wrapped countdown lies once the period is due or
+    // overdue (it restarts at "28d" on the due day), so those states
+    // get their own honest display.
+    final since = cycle.daysSinceLastPeriodStart;
+    final lateDays = cycle.daysLate;
+    final String nextPeriodValue;
+    final String nextPeriodSub;
+    if (lateDays > 0) {
+      nextPeriodValue = 'Late';
+      nextPeriodSub = '$lateDays days late';
+    } else if (since >= cycle.cycleLength) {
+      nextPeriodValue = 'Today';
+      nextPeriodSub = dateLabel(0);
+    } else {
+      nextPeriodValue = '${cycle.daysUntilNextPeriod}d';
+      nextPeriodSub = dateLabel(cycle.daysUntilNextPeriod);
+    }
 
     final isOvulation = cycle.currentPhase == 'Ovulation';
     final fertilityLabel = isOvulation ? 'High' : 'Low';
@@ -512,8 +538,8 @@ class _HomeScreenState extends State<HomeScreen> {
         Expanded(
           child: _statusCard(
             label: 'NEXT PERIOD',
-            value: '${cycle.daysUntilNextPeriod}d',
-            subLabel: nextPeriodLabel,
+            value: nextPeriodValue,
+            subLabel: nextPeriodSub,
             accentColor: AppColors.periodRed,
             useAccent: true,
           ),

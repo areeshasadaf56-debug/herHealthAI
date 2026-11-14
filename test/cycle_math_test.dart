@@ -151,4 +151,26 @@ void main() {
       expect(data.daysUntilOvulationOn(DateTime(2026, 11, 2)), 26);
     });
   });
+
+  group('late-period math (task 3.3)', () {
+    final data = CycleData(
+      lastPeriodStart: DateTime(2026, 10, 18),
+      cycleLength: 28,
+    );
+
+    test('daysSinceLastPeriodStartOn counts unwrapped days', () {
+      expect(data.daysSinceLastPeriodStartOn(DateTime(2026, 11, 14)), 27);
+      // Well past the cycle length -- that is the point: the cycle-day
+      // math wraps, this does not.
+      expect(data.daysSinceLastPeriodStartOn(DateTime(2026, 11, 26)), 39);
+    });
+
+    test('daysLateOn is 0 before and on the due day, then counts up', () {
+      // Due day = 28 days after the start = Nov 15.
+      expect(data.daysLateOn(DateTime(2026, 11, 14)), 0);
+      expect(data.daysLateOn(DateTime(2026, 11, 15)), 0);
+      expect(data.daysLateOn(DateTime(2026, 11, 16)), 1);
+      expect(data.daysLateOn(DateTime(2026, 11, 26)), 11);
+    });
+  });
 }

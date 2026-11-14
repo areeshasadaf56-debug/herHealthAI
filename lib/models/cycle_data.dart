@@ -55,6 +55,28 @@ class CycleData {
     return diff >= 0 ? diff : cycleLength + diff;
   }
 
+  /// Whole days since the recorded period start (0 = started today).
+  /// NOT wrapped by the cycle length -- values beyond [cycleLength]
+  /// are exactly how a late period is measured (task 3.3), while the
+  /// cycle-day math above keeps wrapping.
+  int get daysSinceLastPeriodStart =>
+      daysSinceLastPeriodStartOn(DateTime.now());
+
+  int daysSinceLastPeriodStartOn(DateTime today) =>
+      daysBetween(lastPeriodStart, today);
+
+  /// True once today is past the expected next-period day.
+  bool get isLate => daysLate > 0;
+
+  /// Days past the expected next period start: 0 before it and on the
+  /// due day itself, then the number of days overdue.
+  int get daysLate => daysLateOn(DateTime.now());
+
+  int daysLateOn(DateTime today) {
+    final since = daysSinceLastPeriodStartOn(today);
+    return since > cycleLength ? since - cycleLength : 0;
+  }
+
   // Days until next period
   int daysUntilNextPeriod() {
     final day = getCurrentCycleDay();

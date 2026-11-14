@@ -49,7 +49,7 @@ class OvulationScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
+            _buildHeader(cycle),
             const SizedBox(height: 24),
             _sectionLabel('FERTILITY WINDOW'),
             const SizedBox(height: 10),
@@ -109,9 +109,10 @@ class OvulationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(CycleProvider cycle) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
           text: TextSpan(
@@ -135,9 +136,31 @@ class OvulationScreen extends StatelessWidget {
             ],
           ),
         ),
-        Text(
-          _formattedDate(),
-          style: AppTextStyles.sans(size: 11, color: AppColors.textSecondary),
+        // Task 3.3: when the period is late, say so next to today's
+        // date -- the cycle-day math elsewhere on this screen keeps
+        // wrapping silently.
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _formattedDate(),
+              style: AppTextStyles.sans(
+                size: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            if (cycle.isLate) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${cycle.daysLate} days late',
+                style: AppTextStyles.sans(
+                  size: 11,
+                  weight: FontWeight.w600,
+                  color: AppColors.periodRed,
+                ),
+              ),
+            ],
+          ],
         ),
       ],
     );
