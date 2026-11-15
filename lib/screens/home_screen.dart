@@ -6,6 +6,7 @@ import '../providers/cycle_provider.dart';
 import '../models/health_profile.dart';
 import '../services/auth_session.dart';
 import '../services/health_profile_service.dart';
+import '../utils/app_dates.dart';
 import '../widgets/month_calendar.dart';
 import '../widgets/ai_welcome_card.dart';
 import '../widgets/ai_suggestion_card.dart';
@@ -134,25 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String _formattedDate() {
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final now = DateTime.now();
-    return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
-  }
+  String _formattedDate() => formatShortDateStamp(DateTime.now());
 
   /// Navigate to AI Check-in via the shell's tab navigation
   void _openAiCheckin() {
@@ -575,27 +558,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatusCards(CycleProvider cycle) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
     // Calendar-day arithmetic (task 3.4): raw Duration addition can
     // drift across a DST transition.
     final now = DateTime.now();
     String dateLabel(int daysAhead) {
       final d = DateTime(now.year, now.month, now.day + daysAhead);
-      return '${months[d.month - 1]} ${d.day}';
+      return formatMonthDay(d);
     }
 
     // Task 3.3: the wrapped countdown lies once the period is due or

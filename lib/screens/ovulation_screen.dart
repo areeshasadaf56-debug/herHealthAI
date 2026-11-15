@@ -3,30 +3,13 @@ import '../l10n/app_text.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/cycle_provider.dart';
+import '../utils/app_dates.dart';
 import 'cycle_data_screen.dart';
 
 class OvulationScreen extends StatelessWidget {
   const OvulationScreen({super.key});
 
-  String _formattedDate() {
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final now = DateTime.now();
-    return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
-  }
+  String _formattedDate() => formatShortDateStamp(DateTime.now());
 
   @override
   Widget build(BuildContext context) {
@@ -316,22 +299,7 @@ class OvulationScreen extends StatelessWidget {
       now.month,
       now.day + daysToOvulation,
     );
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final ovulationDateLabel =
-        '${months[ovulationDate.month - 1]} ${ovulationDate.day}';
+    final ovulationDateLabel = formatMonthDay(ovulationDate);
 
     final fertileWindowDays = daysToOvulation.abs() <= 5
         ? (5 - daysToOvulation.abs() + 1).clamp(1, 6)

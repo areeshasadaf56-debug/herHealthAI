@@ -15,6 +15,7 @@ import '../services/chat_nav_hints.dart';
 import '../services/chat_profile_updates.dart';
 import '../services/safety_filter.dart';
 import '../services/support_resources.dart';
+import '../utils/app_dates.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'health_diary_screen.dart';
 import 'sign_in_screen.dart';
@@ -186,7 +187,6 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
     });
 
     await _speech.listen(
-      localeId: _language == 'ur' ? 'ur_PK' : 'en_US',
       onResult: (result) {
         setState(() {
           // Live-update the text field as words are recognized; final
@@ -197,6 +197,11 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
           );
         });
       },
+      // Task 6.2: listenOptions replaces the deprecated localeId
+      // parameter (same value, same defaults for the rest).
+      listenOptions: stt.SpeechListenOptions(
+        localeId: _language == 'ur' ? 'ur_PK' : 'en_US',
+      ),
     );
   }
 
@@ -471,23 +476,7 @@ class _AiCheckinScreenState extends State<AiCheckinScreen> {
     );
   }
 
-  String _formatDate(DateTime d) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[d.month - 1]} ${d.day}, ${d.year}';
-  }
+  String _formatDate(DateTime d) => formatShortDate(d);
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();

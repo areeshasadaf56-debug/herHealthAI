@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 import '../l10n/app_text.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_dates.dart';
 import '../models/health_profile.dart';
 import '../services/health_profile_service.dart';
 import '../widgets/app_animations.dart';
@@ -16,25 +17,7 @@ class EndoScreen extends StatefulWidget {
 class _EndoScreenState extends State<EndoScreen> {
   int _activeTab = 0;
 
-  String _formattedDate() {
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final now = DateTime.now();
-    return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
-  }
+  String _formattedDate() => formatShortDateStamp(DateTime.now());
 
   @override
   Widget build(BuildContext context) {
@@ -57,10 +40,7 @@ class _EndoScreenState extends State<EndoScreen> {
                 ),
               )
             else
-              AppSwitcher(
-                tabKey: _activeTab,
-                child: _buildDetectionTab(),
-              ),
+              AppSwitcher(tabKey: _activeTab, child: _buildDetectionTab()),
             const SizedBox(height: 16),
           ],
         ),
@@ -411,10 +391,7 @@ class _EndoScreenState extends State<EndoScreen> {
     );
   }
 
-  Widget _questionCard(
-    int index, {
-    required List<_EndoQuestion> questions,
-  }) {
+  Widget _questionCard(int index, {required List<_EndoQuestion> questions}) {
     final q = questions[index];
     final selected = _answers['q$index'] ?? -1;
 
@@ -457,9 +434,7 @@ class _EndoScreenState extends State<EndoScreen> {
                 _optionChip(
                   q.options[oi].label,
                   selected: oi == selected,
-                  onTap: () => setState(
-                    () => _answers['q$index'] = oi,
-                  ),
+                  onTap: () => setState(() => _answers['q$index'] = oi),
                 ),
             ],
           ),
@@ -468,7 +443,11 @@ class _EndoScreenState extends State<EndoScreen> {
     );
   }
 
-  Widget _optionChip(String label, {required bool selected, VoidCallback? onTap}) {
+  Widget _optionChip(
+    String label, {
+    required bool selected,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -516,10 +495,11 @@ class _EndoScreenState extends State<EndoScreen> {
     int sel(int i) => _answers['q$i'] ?? -1;
     final periodPainScore =
         sel(0) >= 0 && sel(0) < _endoQuestions[0].options.length
-            ? _endoQuestions[0].options[sel(0)].score
-            : -1;
+        ? _endoQuestions[0].options[sel(0)].score
+        : -1;
     final hasUrgentOrSeverePain = periodPainScore >= 2;
-    final cyclicalSign = sel(3) >= 0 || sel(6) >= 1; // toilet pain OR nausea often
+    final cyclicalSign =
+        sel(3) >= 0 || sel(6) >= 1; // toilet pain OR nausea often
     final positionalSign = sel(2) >= 2; // deep pain with sex, sometimes/most
     final painBetweenPeriods = sel(1) >= 1;
     final longStanding = sel(7) >= 1; // 6+ months
@@ -574,7 +554,9 @@ class _EndoScreenState extends State<EndoScreen> {
       if (sel == null || sel < 0 || sel >= _endoQuestions[i].options.length) {
         continue;
       }
-      out.add('${_endoQuestions[i].question} → ${_endoQuestions[i].options[sel].label}');
+      out.add(
+        '${_endoQuestions[i].question} → ${_endoQuestions[i].options[sel].label}',
+      );
     }
     return out;
   }
@@ -714,8 +696,10 @@ class _EndoScreenState extends State<EndoScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          tr('This checker is educational — it cannot confirm or rule out '
-              'endometriosis.'),
+          tr(
+            'This checker is educational — it cannot confirm or rule out '
+            'endometriosis.',
+          ),
           style: AppTextStyles.sans(
             size: 11,
             color: AppColors.textSecondary,
@@ -853,11 +837,15 @@ const List<_EndoQuestion> _endoQuestions = [
     _EndoOption('Severe — painkillers only partly help, affects my day', 2),
     _EndoOption('Very severe — vomiting, fainting, or nothing helps', 3),
   ]),
-  _EndoQuestion('📅', 'Between periods, how often does your lower belly hurt?', [
-    _EndoOption('Rarely or never', 0),
-    _EndoOption('Some days each month', 1),
-    _EndoOption('Most days', 2),
-  ]),
+  _EndoQuestion(
+    '📅',
+    'Between periods, how often does your lower belly hurt?',
+    [
+      _EndoOption('Rarely or never', 0),
+      _EndoOption('Some days each month', 1),
+      _EndoOption('Most days', 2),
+    ],
+  ),
   _EndoQuestion('💞', 'Do you feel deep pain during or after sex?', [
     _EndoOption('Does not apply to me', 0),
     _EndoOption('Not really', 0),
@@ -869,35 +857,36 @@ const List<_EndoQuestion> _endoQuestions = [
     _EndoOption('Yes — pain passing stool or urine', 2),
   ]),
   _EndoQuestion(
-      '🌊',
-      'Is your bleeding very heavy (soaking a pad hourly) or longer than 7 days?',
-      [
-        _EndoOption('No', 0),
-        _EndoOption('Yes', 1),
-      ]),
+    '🌊',
+    'Is your bleeding very heavy (soaking a pad hourly) or longer than 7 days?',
+    [_EndoOption('No', 0), _EndoOption('Yes', 1)],
+  ),
   _EndoQuestion('🔋', 'Is there crushing tiredness that is hard to explain?', [
     _EndoOption('No', 0),
     _EndoOption('Yes', 1),
   ]),
-  _EndoQuestion('🤢', 'With your periods do you feel nauseated, vomit, or have diarrhoea?', [
-    _EndoOption('None of these', 0),
-    _EndoOption('Sometimes', 1),
-    _EndoOption('Often or severe', 2),
-  ]),
+  _EndoQuestion(
+    '🤢',
+    'With your periods do you feel nauseated, vomit, or have diarrhoea?',
+    [
+      _EndoOption('None of these', 0),
+      _EndoOption('Sometimes', 1),
+      _EndoOption('Often or severe', 2),
+    ],
+  ),
   _EndoQuestion('⏳', 'How long have you had these symptoms?', [
     _EndoOption('A few months', 0),
     _EndoOption('6 months to 2 years', 1),
     _EndoOption('More than 2 years, gradually worsening', 2),
   ]),
-  _EndoQuestion('👪', 'Any close family member (mother, sister) with endometriosis?', [
-    _EndoOption('No, or I don\'t know', 0),
-    _EndoOption('Yes', 1),
-  ]),
   _EndoQuestion(
-      '🤰',
-      'Trying for a pregnancy for 12+ months without success, or fertility is a major worry?',
-      [
-        _EndoOption('Not applicable to me', 0),
-        _EndoOption('Yes', 2),
-      ]),
+    '👪',
+    'Any close family member (mother, sister) with endometriosis?',
+    [_EndoOption('No, or I don\'t know', 0), _EndoOption('Yes', 1)],
+  ),
+  _EndoQuestion(
+    '🤰',
+    'Trying for a pregnancy for 12+ months without success, or fertility is a major worry?',
+    [_EndoOption('Not applicable to me', 0), _EndoOption('Yes', 2)],
+  ),
 ];

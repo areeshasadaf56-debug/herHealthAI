@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 import '../l10n/app_text.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_dates.dart';
 import '../services/eligibility_api_service.dart';
 import '../services/api_error.dart';
 import '../services/health_profile_service.dart';
@@ -1251,25 +1252,7 @@ class _ProtectionScreenState extends State<ProtectionScreen> {
     },
   ];
 
-  String _formattedDate() {
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    final now = DateTime.now();
-    return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
-  }
+  String _formattedDate() => formatFullMonthDateStamp(DateTime.now());
 
   @override
   Widget build(BuildContext context) {

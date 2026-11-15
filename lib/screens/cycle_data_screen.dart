@@ -3,6 +3,7 @@ import '../l10n/app_text.dart';
 import 'package:provider/provider.dart';
 import '../providers/cycle_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_dates.dart';
 
 class CycleDataScreen extends StatefulWidget {
   const CycleDataScreen({super.key});
@@ -27,23 +28,7 @@ class _CycleDataScreenState extends State<CycleDataScreen> {
     _lastPeriodStart = cycle.cycleData.lastPeriodStart;
   }
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
+  String _formatDate(DateTime date) => formatShortDate(date);
 
   Future<void> _pickLastPeriodStart() async {
     final picked = await showDatePicker(

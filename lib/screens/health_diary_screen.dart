@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../models/health_profile.dart';
 import '../services/health_profile_service.dart';
 import '../providers/cycle_provider.dart';
+import '../utils/app_dates.dart';
 import '../widgets/app_animations.dart';
 import '../widgets/diary_entry_dialog.dart';
 import '../widgets/profile_sync_badge.dart';
@@ -55,30 +56,6 @@ class HealthDiaryScreen extends StatefulWidget {
 }
 
 class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
-  static const _shortMonths = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  static const _weekdays = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
-
   final _service = HealthProfileService();
   HealthProfile? _profile;
   bool _loading = true;
@@ -720,12 +697,12 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
     final that = DateTime(d.year, d.month, d.day);
     final diff = today.difference(that).inDays;
 
-    final md = '${_shortMonths[d.month - 1]} ${d.day}, ${d.year}';
+    final md = formatShortDate(d);
     final label = that == today
         ? md
         : diff == 1
         ? '${tr('Yesterday')} · $md'
-        : '${_weekdays[d.weekday - 1]}, $md';
+        : formatFullWeekdayDate(d);
 
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 8),
@@ -1075,23 +1052,5 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
     return v ? 'Yes' : 'No';
   }
 
-  String _formatDate(DateTime d) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final hour = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final ampm = d.hour >= 12 ? 'PM' : 'AM';
-    return '${months[d.month - 1]} ${d.day}, ${d.year} · $hour:${d.minute.toString().padLeft(2, '0')} $ampm';
-  }
+  String _formatDate(DateTime d) => formatShortDateTime(d);
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 import '../l10n/app_text.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_dates.dart';
 
 class QAItem {
   final String question;
@@ -455,25 +456,7 @@ class _LearnScreenState extends State<LearnScreen> {
     });
   }
 
-  String _formattedDate() {
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final now = DateTime.now();
-    return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
-  }
+  String _formattedDate() => formatShortDateStamp(DateTime.now());
 
   @override
   Widget build(BuildContext context) {
