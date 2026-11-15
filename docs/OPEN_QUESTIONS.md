@@ -81,3 +81,16 @@ KEEP them all for now, so they stay in the repo:
 **Question for a later pass:** are any of these worth deleting (and is
 `lib/server/` itself still meaningful)? Deleting anything here remains
 an owner call.
+
+## 6. Language switch placement vs FR-48 (task 6.3)
+
+The SRS (FR-48) assumes Urdu support is a chat-only feature. In the
+current UI the `EN | اردو` switch is a fixed pill pinned to the top
+right of every screen (`lib/l10n/language_fab.dart`), while translated
+*content* still exists only in the AI chat.
+
+**Question:** what is the intended scope?
+1. Keep the pill app-global as a promise of future coverage, or
+2. move it back into the chat screen until FR-48's content work is
+   actually done (its current state can look like the whole app is
+   bilingual when it is not).

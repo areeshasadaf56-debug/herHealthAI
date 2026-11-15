@@ -1,6 +1,6 @@
 # 🌸 Wellness Saheli
 
-> **Your personal women's health companion** — cycle tracking, PCOS detection, contraception guidance, and an AI check-in, all in one privacy-first app.
+> **Your personal women's health companion** — cycle tracking, PCOS detection, contraception guidance, endometriosis information, and an AI check-in, all in one privacy-first app.
 
 
 
@@ -70,7 +70,18 @@ The app is designed with South Asian users in mind, offering culturally sensitiv
 ### 🔒 Privacy Controls
 - Toggle AI memory on/off
 - Toggle diary access for AI on/off
-- All data stored locally + your own backend — no third-party data sharing
+- All health data is stored locally on your device; optional background sync sends it only to your own backend, and a "delete my data from the server" button in Data & Privacy removes the server copy
+- Chat messages sent to the AI companion are processed outside the app by an external AI service — the Data & Privacy screen states exactly what is shared and with whom
+
+### 👤 Account & Data
+- Email sign-up with a 6-digit email verification code before first sign-in
+- Forgot-password flow that requires the emailed 6-digit code
+- Consent checkbox at sign-up and a one-time AI disclosure dialog on first sign-in
+- Whole-profile deletion from the Data & Privacy screen (server copy removed; account deletion is a tracked backend gap)
+
+### 🎗️ Endometriosis
+- Information tab: what endometriosis is, common symptoms, and treatment overview
+- Detection tab: a 10-question self-check scored on-device, saved to your health profile like any other entry
 
 ---
 
@@ -80,7 +91,7 @@ The app is designed with South Asian users in mind, offering culturally sensitiv
 |---|---|
 | Mobile Frontend | Flutter (Dart) |
 | State Management | Provider |
-| Fonts | Google Fonts (Playfair Display + DM Sans) |
+| Fonts | Fredoka (headings) + Nunito (body) — bundled locally, loaded via `google_fonts` |
 | HTTP Client | `package:http` |
 | Local Storage | SharedPreferences |
 | Backend | Python (Flask / FastAPI) |

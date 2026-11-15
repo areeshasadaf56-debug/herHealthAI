@@ -180,7 +180,7 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | FR-45 | When `language == "ur"`, the backend shall append an instruction to the system prompt directing the model to reply in natural, warm, conversational Urdu **for the entire conversation, regardless of the language the user writes in**, unless the user explicitly asks to switch back to English. | `_language_instruction` |
 | FR-46 | When Urdu is selected, the message input field shall render right-to-left and display an Urdu placeholder (`سہیلی کو پیغام بھیجیں…`). | `_inputBar()` |
 | FR-47 | Language switching shall require no app restart and shall not clear the existing conversation. | by design |
-| FR-48 | **[NOT IMPLEMENTED]** Urdu localisation of the remaining 17 screens (labels, buttons, educational content). Only the AI chat is bilingual today. | — |
+| FR-48 | **[NOT IMPLEMENTED]** Urdu localisation of the remaining 17 screens (labels, buttons, educational content). Only the AI chat is bilingual today. *(Owner question, review pass 1: the EN \| اردو switch is now a fixed pill on every screen — `lib/l10n/language_fab.dart` — so the SRS's chat-only placement assumption no longer matches the UI; scope decision recorded in `docs/OPEN_QUESTIONS.md` §6.)* | — |
 
 ### 5.7 Voice Input
 
@@ -231,14 +231,14 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | FR-76 | Saves shall be **upserts** (`ON CONFLICT DO UPDATE`), replacing the whole document — partial-merge logic lives client-side in `updateProfile()`. | `save_profile` |
 | FR-77 | **Load order shall be local-cache-first.** The local cache is authoritative for "what this device just did"; the backend is fetched in the background only to pick up changes from other devices. | `loadProfile` |
 | FR-78 | A backend copy shall be adopted **only** if `remote.lastUpdated.isAfter(local.lastUpdated)`. A stale server record must never clobber a fresher local one. (This guards the historical bug where a PCOS result saved seconds earlier vanished on reopening the Diary.) | `_refreshFromBackendIfNewer` |
-| FR-79 | Saves shall write to local cache **immediately** and push to the backend in the background; UI shall never block on the network. A failed push shall leave the local cache correct and retry on the next save/load. | `saveProfile` |
+| FR-79 | **[FIXED]** Saves shall write to local cache **immediately** and push to the backend in the background; UI shall never block on the network. A failed push shall leave the local cache correct and retry on the next save/load. *(Closed in review pass 1: `updateProfile()` writes local first, queues the backend push without awaiting it, and re-runs `retryPendingSync()` on the next load after a failure.)* | `updateProfile`, `retryPendingSync` |
 | FR-80 | All profile access shall route through `HealthProfileService` — screens shall not call the backend directly. | architectural rule |
 | FR-81 | The system shall present a unified, reverse-chronological timeline merging PCOS results, contraception changes, eligibility checks, cycle logs, and AI conversations. | `health_diary_screen.dart` |
 | FR-82 | The diary shall show summary counts (PCOS checks, methods logged, cycle entries, AI check-ins) and a Timeline/Profile tab switch. | same |
 | FR-83 | The Profile tab shall display four sections — Demographics, Lifestyle, Reproductive Health, Wellbeing — showing "Not set" for null values, plus a "Last updated" line. | `_buildProfileTab` |
 | FR-84 | **[GAP]** The Profile tab is **read-only**. There is no screen anywhere in the app that lets a user directly edit demographics, lifestyle, or wellbeing fields. These can currently be populated only indirectly (AI tool calls, and — once FR-21 is fixed — the PCOS form). A direct profile-edit screen **shall** be added. | — |
 | FR-85 | The system shall support free-text diary entries with date, optional mood, symptom tags, and body text. | `DiaryEntry`, `diary_entry_dialog.dart` |
-| FR-86 | The user shall be able to delete their entire stored profile. | `DELETE /profile/<user_id>` |
+| FR-86 | **[FIXED]** The user shall be able to delete their entire stored profile. *(Closed in review pass 1: the Data & Privacy screen has a "delete my data from the server" action that waits for any in-flight save, treats 404 as already-deleted, and clears the stored token on 401. Server account deletion itself is still a backend gap — see `docs/BACKEND_TODO.md`.)* | `deleteServerProfile`, `data_privacy_screen.dart` |
 
 ### 5.11 Settings, Privacy, Content
 
@@ -251,8 +251,8 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | FR-91 | The system shall provide About and Terms screens. | `about_screen.dart`, `terms_screen.dart` |
 | FR-92 | The system shall provide a data & privacy screen explaining what is stored and where. | `data_privacy_screen.dart` |
 | FR-93 | The app shell shall present 8 tabs — Cycle, Ovu, Prot, PCOS, Endo, Learn, Set, Chat — via an `IndexedStack` preserving each tab's state across switches. | `home_shell.dart` |
-| FR-94 | Tab content shall be constrained to a max width of **640 px** and centred, for readable layout on wide screens. | same |
-| FR-95 | **[FIXED]** The tab content area shall be given an explicit bounded height via `LayoutBuilder` rather than relying on ambient constraints, which could silently collapse to zero height and render a blank screen with no error. | `home_shell.dart` |
+| FR-94 | **[FIXED]** Tab content shall be constrained to a max width of **640 px** and centred, for readable layout on wide screens. *(Closed in review pass 1: `Center` + `ConstrainedBox(maxWidth: 640)` wraps both the tab stack and the bottom nav row.)* | `home_shell.dart` |
+| FR-95 | **[FIXED]** The tab content area shall be given an explicitly bounded height rather than relying on ambient constraints, which could silently collapse to zero height and render a blank screen with no error. *(Note: the earlier "via `LayoutBuilder`" wording described a widget that is not in the code — the tab stack lives in the `Scaffold` body, which always receives bounded height.)* | `home_shell.dart` |
 
 ---
 
@@ -394,11 +394,11 @@ Three separate SQLite files:
 | SEC-09 | Rate limiting on signup, signin, and reset. | ✅ |
 | SEC-10 | Prediction errors shall not leak model or library internals. | ✅ |
 | SEC-11 | Profile payload size capped to prevent storage abuse. | ✅ |
-| SEC-12 | **[OPEN]** Password reset has no ownership proof (no emailed code/link). Rate limiting only. | ⚠️ |
+| SEC-12 | Password reset now has emailed-code ownership proof: the client requests a 6-digit code (`/verify_email/request` with `purpose: 'reset'`) and `/reset_password` sets a new password **only** with a valid code. *(Closed in review pass 1; rate limiting still applies.)* | ✅ |
 | SEC-13 | **[OPEN]** Rate limiting is in-process and keyed by `request.remote_addr`; it resets on worker restart and is defeatable behind shared NAT or by rotating IPs. | ⚠️ |
 | SEC-14 | **[OPEN]** `/predict`, `/eligibility`, `/conditions`, `/methods_reference`, `/effectiveness` are unauthenticated. Acceptable for reference data; `/predict` consumes CPU and may warrant auth. | ⚠️ |
 | SEC-15 | **[OPEN]** Attachments are accepted by declared MIME type without content sniffing or malware scanning. | ⚠️ |
-| SEC-16 | **[REVIEW]** Health disclosures (mental health, reproductive health) are transmitted to a third-party AI provider. Groq's terms must be reviewed before any real-world deployment, and users must be told in the privacy screen. | ⚠️ |
+| SEC-16 | **[PARTIAL]** Health disclosures are transmitted to an external AI service. The client side is closed: the Data & Privacy screen states what leaves the device, sourced from `lib/config/disclosures.dart` (which carries an `// OWNER:` placeholder for the real provider name). Remaining before any real-world deployment: confirm the actual provider and review its terms — tracked in `docs/BACKEND_TODO.md` §Gaps. | ⚠️ |
 
 ---
 

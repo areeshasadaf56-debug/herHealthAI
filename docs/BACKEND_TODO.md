@@ -41,3 +41,9 @@ diary entries, and privacy settings.
    how passwords are stored; if the backend wants that disclosed
    (e.g. "hashed"), it should confirm the mechanism so the client can
    state it as fact.
+3. **AI provider identity (SEC-16).** The Data & Privacy copy says
+   replies come from "an external AI service" because the owner has not
+   confirmed which service actually powers `/chat`. Needed before
+   release: the real provider name (replaces the `// OWNER:` placeholder
+   in `lib/config/disclosures.dart`) and a review of that provider's
+   terms for health-data processing.
