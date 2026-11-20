@@ -8,6 +8,9 @@ import '../services/auth_session.dart';
 import '../services/health_profile_service.dart';
 import '../utils/app_dates.dart';
 import '../widgets/month_calendar.dart';
+import '../widgets/tool_page.dart';
+import 'pcos_screen.dart';
+import 'endo_screen.dart';
 import '../widgets/ai_welcome_card.dart';
 import '../widgets/ai_suggestion_card.dart';
 import 'cycle_data_screen.dart';
@@ -175,6 +178,12 @@ class _HomeScreenState extends State<HomeScreen> {
             // ===== CONTEXTUAL SUGGESTIONS =====
             _buildContextualSuggestions(cycle),
             const SizedBox(height: 28),
+
+            // ===== HEALTH TOOLS (task 8.2) =====
+            // PCOS and Endo lost their bottom tabs in the Phase 7 nav
+            // decision; these cards are now their primary entry point.
+            _buildHealthTools(),
+            const SizedBox(height: 24),
 
             // Cycle dial - moved down (secondary feature now)
             _buildCycleDial(cycle),
@@ -459,6 +468,196 @@ class _HomeScreenState extends State<HomeScreen> {
         size: 11,
         weight: FontWeight.w600,
         color: AppColors.textSecondary,
+      ),
+    );
+  }
+
+  /// Task 8.2: the health tools that used to own bottom tabs.
+  ///
+  /// Owner decision (Phase 7): PCOS and Endometriosis moved under Home
+  /// as cards, with a "More" sheet as the fallback list, so the bottom
+  /// bar stays at six labelled tabs.
+  Widget _buildHealthTools() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _sectionLabel('HEALTH TOOLS'),
+            TextButton(
+              key: const ValueKey('home-tools-more'),
+              onPressed: _showHealthToolsSheet,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(48, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: AppColors.primary,
+              ),
+              child: Text(
+                'More',
+                style: AppTextStyles.sans(
+                  size: 11,
+                  weight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _toolCard(
+                key: const ValueKey('home-tool-pcos'),
+                icon: Icons.bubble_chart_outlined,
+                title: 'PCOS',
+                subtitle: 'Symptoms & risk check',
+                onTap: () => _openTool(const PcosScreen()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _toolCard(
+                key: const ValueKey('home-tool-endo'),
+                icon: Icons.local_florist_outlined,
+                title: 'Endometriosis',
+                subtitle: 'Information & detection',
+                onTap: () => _openTool(const EndoScreen()),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _toolCard({
+    required Key key,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      key: key,
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.sans(
+                      size: 13,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.sans(
+                      size: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Opens a tab-less tool as a full-screen pushed page (task 8.1).
+  void _openTool(Widget tool) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ToolPage(child: tool)),
+    );
+  }
+
+  Future<void> _showHealthToolsSheet() {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _sectionLabel('MORE HEALTH TOOLS'),
+              ),
+            ),
+            ListTile(
+              key: const ValueKey('sheet-pcos'),
+              leading: const Icon(
+                Icons.bubble_chart_outlined,
+                color: AppColors.primary,
+              ),
+              title: Text(
+                'PCOS',
+                style: AppTextStyles.sans(size: 14, weight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                'Symptoms, detection & results',
+                style: AppTextStyles.sans(
+                  size: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openTool(const PcosScreen());
+              },
+            ),
+            ListTile(
+              key: const ValueKey('sheet-endo'),
+              leading: const Icon(
+                Icons.local_florist_outlined,
+                color: AppColors.primary,
+              ),
+              title: Text(
+                'Endometriosis',
+                style: AppTextStyles.sans(size: 14, weight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                'Information & detection',
+                style: AppTextStyles.sans(
+                  size: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openTool(const EndoScreen());
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
