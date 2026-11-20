@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 import '../l10n/app_text.dart';
 import '../theme/app_theme.dart';
+import '../widgets/tool_page.dart';
 import 'home_screen.dart';
 import 'ovulation_screen.dart';
 import 'protection_screen.dart';
@@ -11,8 +12,13 @@ import 'settings_screen.dart';
 import 'ai_checkin_screen.dart';
 
 // The app's main shell after sign-in: a bottom nav bar switching between
-// the 8 primary tabs (now includes AI Check-in). Each tab's screen is kept
-// alive in an IndexedStack so switching tabs doesn't rebuild/reset their state.
+// the 6 primary tabs. Each tab's screen is kept alive in an IndexedStack
+// so switching tabs doesn't rebuild/reset their state.
+//
+// Task 8.1 (Phase 7 navigation decision): PCOS and Endometriosis no
+// longer own tabs. They are opened from Home's "health tools" cards (or
+// the More sheet), and nav hints from the AI chat ("Take me to PCOS")
+// route through _navigateToTab, which pushes them as full-screen tools.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -44,21 +50,37 @@ class _HomeShellState extends State<HomeShell>
     _switchController.forward(from: 0);
   }
 
-  /// Navigate to a specific tab by name or index
+  /// Navigate to a specific tab by name, or push a tool that no longer
+  /// has its own tab (PCOS, Endo -- task 8.1). The name map stays the
+  /// single router so AI chat hints ("Take me to PCOS") keep working.
   void _navigateToTab(String tabName) {
     final tabMap = {
       'cycle': 0,
       'ovulation': 1,
       'protection': 2,
-      'pcos': 3,
-      'endo': 4,
-      'learn': 5,
-      'settings': 6,
-      'checkin': 7,
+      'learn': 3,
+      'settings': 4,
+      'checkin': 5,
     };
+
+    switch (tabName) {
+      case 'pcos':
+        _openTool(const PcosScreen());
+        return;
+      case 'endo':
+        _openTool(const EndoScreen());
+        return;
+    }
 
     final newIndex = tabMap[tabName] ?? 0;
     _changeTab(newIndex);
+  }
+
+  /// Pushes a tab-less tool (PCOS / Endo) as a full-screen route.
+  void _openTool(Widget tool) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ToolPage(child: tool)));
   }
 
   final List<_NavItem> _navItems = [
@@ -76,16 +98,6 @@ class _HomeShellState extends State<HomeShell>
       icon: Icons.shield_outlined,
       label: 'Protection',
       shortLabel: 'Prot',
-    ),
-    const _NavItem(
-      icon: Icons.bubble_chart_outlined,
-      label: 'PCOS',
-      shortLabel: 'PCOS',
-    ),
-    const _NavItem(
-      icon: Icons.local_florist_outlined,
-      label: 'Endo',
-      shortLabel: 'Endo',
     ),
     const _NavItem(
       icon: Icons.menu_book_outlined,
@@ -111,8 +123,6 @@ class _HomeShellState extends State<HomeShell>
       HomeScreen(onNavigateToTab: _navigateToTab),
       const OvulationScreen(),
       const ProtectionScreen(),
-      const PcosScreen(),
-      const EndoScreen(),
       const LearnScreen(),
       const SettingsScreen(),
       AiCheckinScreen(onNavigateToTab: _navigateToTab),
@@ -165,6 +175,7 @@ class _HomeShellState extends State<HomeShell>
                     // Task 2.4: screen readers get the FULL tab name and
                     // a button+selected state, not a raw icon glyph.
                     child: Semantics(
+                      key: ValueKey('nav-${item.shortLabel}'),
                       button: true,
                       selected: active,
                       label: item.label,

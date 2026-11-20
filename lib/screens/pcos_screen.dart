@@ -152,7 +152,7 @@ class _PcosScreenState extends State<PcosScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             const SizedBox(height: 20),
             _buildTabs(),
             const SizedBox(height: 20),
@@ -179,10 +179,22 @@ class _PcosScreenState extends State<PcosScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        // Task 8.1: this screen is pushed as a full-screen tool now, so
+        // it carries its own back affordance when it can pop.
+        if (Navigator.canPop(context)) ...[
+          IconButton(
+            tooltip: 'Back',
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            color: AppColors.textSecondary,
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(width: 2),
+        ],
         RichText(
           text: TextSpan(
             children: [
@@ -205,6 +217,7 @@ class _PcosScreenState extends State<PcosScreen> {
             ],
           ),
         ),
+        const Spacer(),
         Text(
           _formattedDate(),
           style: AppTextStyles.sans(size: 11, color: AppColors.textSecondary),
