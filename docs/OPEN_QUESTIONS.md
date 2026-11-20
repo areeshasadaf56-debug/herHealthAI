@@ -94,3 +94,8 @@ right of every screen (`lib/l10n/language_fab.dart`), while translated
 2. move it back into the chat screen until FR-48's content work is
    actually done (its current state can look like the whole app is
    bilingual when it is not).
+
+**Decided (Phase 7, 2026-11-20):** option 1 — keep the pill app-global
+(see `docs/NAV_PROPOSAL.md`, Decision Q3). The caveat stands: only chat
+*content* is translated today; the remaining localization is still open
+under FR-48.

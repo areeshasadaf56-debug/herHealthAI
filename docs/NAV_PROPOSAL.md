@@ -3,6 +3,11 @@
 **Status:** design document only. Nothing here is implemented; any change
 needs explicit owner approval (Phase 7 gate).
 
+**DECIDED (Phase 7, 2026-11-15):** the owner approved a **variant of
+Option B with 6 tabs** — see [Decision](#decision-phase-7-2026-11-15)
+below. Implementation has NOT started; building it needs its own
+approved phase.
+
 ## Current state
 
 One `Scaffold` bottom bar with **8 tabs**, all alive in an `IndexedStack`
@@ -17,7 +22,7 @@ One `Scaffold` bottom bar with **8 tabs**, all alive in an `IndexedStack`
 | 4 | Endo | flower | Endo |
 | 5 | Learn | book | Learn |
 | 6 | Settings | gear | Set |
-| 7 | AI Check-in | heart | Chat |
+| 7 | Check-in | heart | Chat |
 
 Sub-navigation also exists *inside* screens (in-tab `_tabButton` rows in
 Health Diary, Protection and PCOS screens) and via the app-wide AI
@@ -27,8 +32,9 @@ check-in FAB (`LanguageFab` is separate — that one is language only).
 
 1. **8 tabs is above every platform guideline** (Material recommends
    3–5; Apple recommends 3–5, hard maximum ~7). Each tab gets only
-   ~12% of the width, forcing the 7.5sp labels that were fixed in code
-   (now 10sp) but cannot grow further.
+   ~12% of the width; the labels were 7.5sp at review time, then raised
+   to 10sp (task 2.4) and 11sp (task 2.7, the app's readable floor),
+   where they cannot grow further.
 2. **Information architecture is flat.** Cycle / Ovulation / PCOS / Endo
    are all "health tracking" surfaces of different depth; Learn and
    Protection are content; Settings is meta. Flat + 8 wide makes
@@ -69,7 +75,7 @@ Home · Protection · Learn · Settings, AI Check-in as the app-wide FAB
   work; AI check-in demoted from tab hurts discoverability of a
   flagship feature.
 
-## Recommendation
+## Recommendation (superseded by the Decision below — kept for the record)
 
 Option B, implemented in a later approved phase, with:
 - unchanged tab order for the five survivors,
@@ -79,10 +85,38 @@ Option B, implemented in a later approved phase, with:
 - a migration note that deep links / saved tab index in memory are
   remapped to the new indices.
 
+## Decision (Phase 7, 2026-11-20)
+
+Owner decisions recorded below; none of them is implemented yet.
+
+**Q1 — Structure: Option B variant with 6 tabs.**
+Bottom bar: **Cycle · Ovulation · Protection · Learn · Check-in · Settings**.
+- Option B's 5-tab core adopted (Home=Cycle, Protection, Learn, Check-in, Settings).
+- Variant: Ovulation keeps its own tab (6 total), so all cycle tools stay
+  one tap away. PCOS and Endo move under Home quick-cards per Option B.
+- Consensus rationale: 6 tabs is just above Apple's soft guideline but
+  keeps the app's flagship cycle surfaces at one-tap depth; labels can
+  stay at the app's 11sp readable floor without truncation risk on ~320dp
+  phones since only one extra tab is added vs the 5-tab baseline.
+- PCOS/Endo cards on Home and a fallback "More" sheet remain part of the
+  design regardless of which screen owns the tab.
+
+**Q2 — Small-phone labels: always shown.**
+The bottom bar keeps labels at every width; no icon-only mode below 360dp.
+Rationale: labels are already at the 11sp floor and 48dp targets are met,
+so truncation risk at 6 tabs is low on small phones; icon-only mode would
+lose the language/label clarity the pill already provides.
+
+**Q3 — Language pill: keep app-global.**
+The EN | اردو pill stays pinned to every screen (owner-approved in
+review item 2.6, `main.dart:44–47`). Translated content remains chat-only
+until FR-48's localization work happens; see `docs/OPEN_QUESTIONS.md` §6.
+
+None of Q1–Q3 changes code yet. Implementation of any part requires a
+separately approved phase.
+
 ## Open questions for the owner
 
-1. Which option (A/B/C or a variant)?
-2. If B: does Ovulation deserve its own tab in *this* app's usage, or is
-   chip-under-Home enough?
-3. If B/C: should the bottom bar show labels at all on small phones
-   (icon-only mode below 360dp)?
+1. **(Resolved — Q1 above)** Option B variant with 6 tabs; Ovulation keeps its tab.
+2. **(Resolved — Q2 above)** Labels always shown; no icon-only mode below 360dp.
+3. **(Resolved — Q3 above)** Language pill stays app-global.

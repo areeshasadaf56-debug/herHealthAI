@@ -88,15 +88,26 @@ reviewer saw). `file:line` was read on this tree.
 | 6.2 Code quality | **Partially** | `withOpacity` already 0. 12+ duplicated month-name arrays + date-formatting helpers (`month_calendar.dart:24`, `cycle_data_screen.dart:30`, `ai_checkin_screen.dart:449`, `endo_screen.dart:22`, `health_diary_screen.dart:58,1028`, `home_screen.dart:45,466`, `pcos_screen.dart:145`, `ovulation_screen.dart:13,205`, `learn_screen.dart:461`); `intl` not yet a dependency (allowed) |
 | 6.3 Docs | **Confirmed** | README describes a pre-endo/pre-verify app and still says "no third-party data sharing" (L73); SRS flags listed below |
 
+## Phase 7 — navigation decision gate (design docs only)
+
+| ID | Status | Evidence |
+| --- | --- | --- |
+| 7.1 Nav IA | **Decided** | Owner picked the Option B variant with **6 tabs** (Cycle · Ovulation · Protection · Learn · Check-in · Settings; Ovulation keeps its tab, PCOS/Endo move under Home). Labels always shown. Recorded in `docs/NAV_PROPOSAL.md` §Decision (2026-11-20). Implementation deliberately not started — needs its own approved phase |
+| 7.2 Language pill (2.6) | **Decided** | Stays app-global; recorded in `docs/OPEN_QUESTIONS.md` §6 and `docs/NAV_PROPOSAL.md` Decision Q3 |
+
+
 ## SRS ↔ code disagreements (`requirements.md`)
 
-- **FR-79** (background save, never block UI) — code awaits the PUT; disagree.
-- **FR-94** (640px cap) — not implemented in `home_shell.dart`.
-- **FR-95** (bounded height via `LayoutBuilder`, marked `[FIXED]` vs `home_shell.dart`) — there is **no** `LayoutBuilder` in `home_shell.dart` here; SRS stale.
-- **FR-86** (delete whole profile) — not implemented client-side.
-- **SEC-12** (`[OPEN]` no ownership proof) — outdated: emailed-code reset now exists (4.5).
-- **SEC-16** — still open; no provider disclosure.
-- **FR-48** (only chat bilingual) — still true for content, but the EN/اردو pill is now global UI, so the SRS assumption about placement changed.
+Raised at review start; every item was closed or re-recorded in Phase 6
+(flags in `requirements.md` now carry the resolution notes).
+
+- **FR-79** (background save, never block UI) — **closed**: `updateProfile` writes local first and queues the push; retried on next load.
+- **FR-94** (640px cap) — **closed**: `home_shell.dart` wraps the tab stack and nav row in `Center` + `ConstrainedBox(maxWidth: 640)`.
+- **FR-95** (bounded height via `LayoutBuilder`, marked `[FIXED]` vs `home_shell.dart`) — **re-recorded**: no `LayoutBuilder` exists; the `Scaffold` body provides the bounded height and the SRS note was corrected.
+- **FR-86** (delete whole profile) — **closed client-side**: `deleteServerProfile` is wired from the Data & Privacy screen; server-side account deletion remains a backend gap (`docs/BACKEND_TODO.md`).
+- **SEC-12** (`[OPEN]` no ownership proof) — **closed**: password reset requires an emailed 6-digit code.
+- **SEC-16** — **partial**: in-app disclosure ships via `lib/config/disclosures.dart`; provider name + terms review stay an owner item (`docs/BACKEND_TODO.md` gap 3).
+- **FR-48** (only chat bilingual) — still true for content; the EN/اردو pill is global by owner decision (Phase 7, `docs/OPEN_QUESTIONS.md` §6).
 
 ## Baseline runs (recorded)
 
