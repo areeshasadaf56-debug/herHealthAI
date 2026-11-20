@@ -3,10 +3,15 @@
 **Status:** design document only. Nothing here is implemented; any change
 needs explicit owner approval (Phase 7 gate).
 
-**DECIDED (Phase 7, 2026-11-15):** the owner approved a **variant of
-Option B with 6 tabs** — see [Decision](#decision-phase-7-2026-11-15)
-below. Implementation has NOT started; building it needs its own
-approved phase.
+**DECIDED (Phase 7, 2026-11-20):** the owner approved a **variant of
+Option B with 6 tabs** — see [Decision](#decision-phase-7-2026-11-20)
+below.
+
+**IMPLEMENTED (Phase 8, 2026-11-20):** the decision above ships as
+`HomeShell` 6 tabs + `ToolPage`/Home health-tools cards
+(`docs/REVIEW_VERIFICATION.md` Phase 8). The "Current state" and
+"Problems" sections below describe the pre-implementation app and are
+kept as the review record.
 
 ## Current state
 
@@ -87,7 +92,8 @@ Option B, implemented in a later approved phase, with:
 
 ## Decision (Phase 7, 2026-11-20)
 
-Owner decisions recorded below; none of them is implemented yet.
+Owner decisions recorded below; implemented in Phase 8 (see the
+status note at the top).
 
 **Q1 — Structure: Option B variant with 6 tabs.**
 Bottom bar: **Cycle · Ovulation · Protection · Learn · Check-in · Settings**.
@@ -112,8 +118,8 @@ The EN | اردو pill stays pinned to every screen (owner-approved in
 review item 2.6, `main.dart:44–47`). Translated content remains chat-only
 until FR-48's localization work happens; see `docs/OPEN_QUESTIONS.md` §6.
 
-None of Q1–Q3 changes code yet. Implementation of any part requires a
-separately approved phase.
+None of Q1–Q3 changes the design intent; Phase 8 built exactly this
+(6-tab shell, pushed PCOS/Endo tools, Home cards + More sheet).
 
 ## Open questions for the owner
 

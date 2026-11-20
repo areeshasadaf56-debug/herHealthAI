@@ -92,8 +92,16 @@ reviewer saw). `file:line` was read on this tree.
 
 | ID | Status | Evidence |
 | --- | --- | --- |
-| 7.1 Nav IA | **Decided** | Owner picked the Option B variant with **6 tabs** (Cycle · Ovulation · Protection · Learn · Check-in · Settings; Ovulation keeps its tab, PCOS/Endo move under Home). Labels always shown. Recorded in `docs/NAV_PROPOSAL.md` §Decision (2026-11-20). Implementation deliberately not started — needs its own approved phase |
+| 7.1 Nav IA | **Decided → implemented** | Owner picked the Option B variant with **6 tabs** (Cycle · Ovulation · Protection · Learn · Check-in · Settings; Ovulation keeps its tab, PCOS/Endo move under Home). Labels always shown. Recorded in `docs/NAV_PROPOSAL.md` §Decision (2026-11-20) and built in Phase 8 |
 | 7.2 Language pill (2.6) | **Decided** | Stays app-global; recorded in `docs/OPEN_QUESTIONS.md` §6 and `docs/NAV_PROPOSAL.md` Decision Q3 |
+
+## Phase 8 — navigation decision implemented
+
+| ID | Status | Evidence |
+| --- | --- | --- |
+| 8.1 Six-tab shell | **Done** | `home_shell.dart`: bar is Cycle · Ovu · Prot · Learn · Set · Chat; PCOS/Endo removed from the `IndexedStack`; `_navigateToTab` still routes AI hints by name and now pushes `pcos`/`endo` through `ToolPage` (`lib/widgets/tool_page.dart`). Pushed tools gained their own back arrow (`_buildHeader`, canPop-guarded). Commit `bdf5d44` |
+| 8.2 Home health tools | **Done** | `home_screen.dart`: "HEALTH TOOLS" section under the contextual suggestions with PCOS/Endo cards and a More sheet fallback (keys `home-tool-pcos`, `home-tool-endo`, `home-tools-more`, `sheet-*`). Commit `5390267` |
+| 8.3 Tests | **Done** | `test/shell_nav_test.dart`: six nav labels present, PCOS/Endo absent from the bar, tab taps change the `IndexedStack` index, cards/More sheet push the tool pages, back arrow pops. Suite 74/74. Commit `7cb865f` |
 
 
 ## SRS ↔ code disagreements (`requirements.md`)

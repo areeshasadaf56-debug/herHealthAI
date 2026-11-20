@@ -250,7 +250,7 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | FR-90 | The system shall provide dedicated endometriosis information. | `endo_screen.dart` |
 | FR-91 | The system shall provide About and Terms screens. | `about_screen.dart`, `terms_screen.dart` |
 | FR-92 | The system shall provide a data & privacy screen explaining what is stored and where. | `data_privacy_screen.dart` |
-| FR-93 | The app shell shall present 8 tabs — Cycle, Ovu, Prot, PCOS, Endo, Learn, Set, Chat — via an `IndexedStack` preserving each tab's state across switches. | `home_shell.dart` |
+| FR-93 | The app shell shall present **6 tabs** — Cycle, Ovu, Prot, Learn, Set, Chat — via an `IndexedStack` preserving each tab's state across switches. *(Phase 8: PCOS and Endo left the bar under the Phase 7 navigation decision; they open from Home's health-tools cards, the More sheet, or AI nav hints as pushed full-screen tools. Formerly 8 tabs.)* | `home_shell.dart`, `home_screen.dart` |
 | FR-94 | **[FIXED]** Tab content shall be constrained to a max width of **640 px** and centred, for readable layout on wide screens. *(Closed in review pass 1: `Center` + `ConstrainedBox(maxWidth: 640)` wraps both the tab stack and the bottom nav row.)* | `home_shell.dart` |
 | FR-95 | **[FIXED]** The tab content area shall be given an explicitly bounded height rather than relying on ambient constraints, which could silently collapse to zero height and render a blank screen with no error. *(Note: the earlier "via `LayoutBuilder`" wording described a widget that is not in the code — the tab stack lives in the `Scaffold` body, which always receives bounded height.)* | `home_shell.dart` |
 
