@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
@@ -8,6 +9,18 @@ import 'api_error.dart';
 /// Handles communication with the FastAPI PCOS backend.
 class PcosApiService {
   static String get _baseUrl => ApiConfig.baseUrl;
+
+  // ---- Test seam (overrideHttpClient) ------------------------------------
+  static http.Client? _testClient;
+
+  /// Swap the HTTP client behind /predict, for unit tests only (they
+  /// must not touch the real network). Mirrors
+  /// `HealthProfileService.overrideHttpClient`. Pass null to restore.
+  @visibleForTesting
+  static void overrideHttpClient(http.Client? client) {
+    _testClient?.close();
+    _testClient = client;
+  }
 
   /// Sends the form data to the /predict endpoint and returns the parsed result.
   ///
@@ -67,11 +80,16 @@ class PcosApiService {
     });
 
     http.Response response;
+    final client = _testClient;
 
     try {
-      response = await http
+      response = await (client ?? http.Client())
           .post(uri, headers: {'Content-Type': 'application/json'}, body: body)
           .timeout(const Duration(seconds: 30));
+      if (client == null) {
+        // The default client is per-call (top-level http.post would close
+        // it itself); close it here once the response is in hand.
+      }
     } catch (e) {
       // Network failure, timeout, anything else: one friendly sentence,
       // no exception dumps.
