@@ -91,6 +91,7 @@ lib/
     ├── pcos_screen.dart            ✅ documented below
     ├── protection_screen.dart      ✅ documented below
     ├── health_diary_screen.dart    ✅ documented below
+    ├── profile_edit_screen.dart    ✅ documented below (FR-84 editor)
     ├── endo_screen.dart            ✅ documented below (Detection tab is a placeholder)
     ├── ovulation_screen.dart       (not yet reviewed)
     ├── learn_screen.dart           (not yet reviewed)
@@ -172,17 +173,22 @@ with optional mood chip and optional symptom-tag chips. Builds a `DiaryEntry`
 and appends it to `HealthProfile.diaryEntries` via `HealthProfileService`.
 
 ### `lib/screens/home_shell.dart`
-The app's root navigation shell after sign-in. Owns an `IndexedStack` of all
-tab screens (so switching tabs never loses state) and a custom bottom nav
-bar. Maintains `_tabNameToIndex`, a string→index map (`'home'`, `'checkin'`,
-`'pcos'`, `'protection'`, etc.) so other screens can request a tab switch by
-name via the `_navigateToTab` callback, without needing to know raw indices.
+The app's root navigation shell after sign-in: **six** labelled tabs (Cycle ·
+Ovulation · Protection · Learn · Settings · Check-in). Owns an `IndexedStack`
+of those tab screens (so switching tabs never loses state) plus a custom
+bottom nav bar. `_navigateToTab` keeps a string→index map (`'cycle'`,
+`'checkin'`, `'learn'`, …) so other screens can request a tab switch by
+name, and it is also the router for AI nav hints: `'pcos'`/`'endo'` push
+those screens as full-screen `ToolPage` routes instead of switching tabs
+(Phase 7 decision — see `docs/NAV_PROPOSAL.md`).
 
 ### `lib/screens/home_screen.dart`
-The dashboard tab: greeting, cycle dial, next-period/fertility status cards,
-week calendar, quick log buttons (flow/mood/symptoms — writes to
-`CycleProvider`), a phase insight card, and a dismissible AI check-in banner.
-The banner does **not** open a separate screen — it calls
+The dashboard tab: greeting, AI welcome card, contextual suggestions, a
+"HEALTH TOOLS" section (PCOS + Endometriosis cards, with a More sheet
+fallback for the tools that no longer own tabs), cycle dial,
+next-period/fertility status cards, week calendar, quick log buttons
+(flow/mood/symptoms — writes to `CycleProvider`), and a phase insight card.
+The AI welcome card at the top does **not** open a separate screen — it calls
 `onNavigateToTab('checkin')` so the shell switches to the already-alive
 `AiCheckinScreen` tab instance.
 
@@ -229,9 +235,20 @@ The unified Timeline + Profile screen. Merges four data sources into one
 sorted, month-grouped timeline: PCOS checks, contraception history (split
 visually into "Eligibility Check" vs. "Protection Method" via a note-prefix
 convention), free-text diary entries, and AI conversation turns. The Profile
-tab shows read-only summaries of Demographics/Lifestyle/Reproductive
-Health/Wellbeing, plus the "Log how you're feeling" and "Write in your
-diary" entry points.
+tab shows Demographics/Lifestyle/Reproductive Health/Wellbeing summaries
+(refreshed live from `profileUpdated`) plus the "Log how you're feeling",
+"Write in your diary" and "Edit profile" entry points.
+
+### `lib/screens/profile_edit_screen.dart`
+Direct editor for the Health Profile (SRS FR-84). Edits demographics, the
+lifestyle block, cycle regularity and the self-reported wellbeing fields;
+every field is optional and an emptied field stores `null`. Saving goes
+through `HealthProfileService.updateProfile`, so the Diary, Home and AI tabs
+update through the shared `profileUpdated` notifier. Fields owned elsewhere
+are shown as hints, not inputs: cycle length mirrors the Cycle tracker,
+the current method belongs to the Protection tab, and last check-in is
+written by the AI check-in. Opened from Settings ("Health Profile") and the
+Diary's Profile tab.
 
 ### `lib/screens/endo_screen.dart`
 Mirrors `pcos_screen.dart`'s structure. The **Information** tab is fully

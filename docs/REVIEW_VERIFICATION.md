@@ -103,6 +103,14 @@ reviewer saw). `file:line` was read on this tree.
 | 8.2 Home health tools | **Done** | `home_screen.dart`: "HEALTH TOOLS" section under the contextual suggestions with PCOS/Endo cards and a More sheet fallback (keys `home-tool-pcos`, `home-tool-endo`, `home-tools-more`, `sheet-*`). Commit `5390267` |
 | 8.3 Tests | **Done** | `test/shell_nav_test.dart`: six nav labels present, PCOS/Endo absent from the bar, tab taps change the `IndexedStack` index, cards/More sheet push the tool pages, back arrow pops. Suite 74/74. Commit `7cb865f` |
 
+## Phase 9 — profile editing (FR-84)
+
+| ID | Status | Evidence |
+| --- | --- | --- |
+| 9.1 Profile editor | **Done** | `lib/screens/profile_edit_screen.dart`: sections Demographics (age/weight/height/marital status), Lifestyle (exercise switch + frequency, diet quality, fast food, sleep, notes), Reproductive Health (cycle regularity + hints for fields owned elsewhere), Wellbeing (stress 1–5, notes). Optional fields clear to `null`; numeric ranges mirror the PCOS form (age 10–100, weight 20–350, height 100–250, sleep 0–24); saves through `HealthProfileService.updateProfile` so Home/Diary/AI refresh via `profileUpdated`. Entry points: Settings → Health → "Health Profile / Edit", and the Diary Profile tab's "Edit profile" (`diary-edit-profile`). Deliberately read-only: cycle length (Cycle tracker mirror), current method (Protection tab), last check-in (AI). Commit `6bbfaa9` |
+| 9.2 Tests | **Done** | `test/profile_edit_test.dart`: blank profile → enter 30/58/162 → save pops with snackbar, values land in `health_profile_cache_*` JSON (`age_yrs` 30, `weight_kg` 58, `height_cm` 162) and reload through the service; age 5 is rejected with "Must be between 10 and 100" and writes nothing. Suite 76/76. Commit `6bbfaa9` |
+| 9.3 Docs | **Done** | `requirements.md` FR-84 → **[FIXED]** with entry points/tests; stale §9.2 note ("cannot clear via copyWith") corrected to the `_unset` sentinel semantics; backlog item struck. README project structure rebuilt to match the real `lib/` tree (was missing `endo`, `learn`, `sign_in/up`, `verify_email`, `forgot_password`, `data_privacy`, `home_shell`, `profile_edit`, `l10n/`, `widgets/`, `test/`, `docs/`). Developer guide: `home_shell` corrected to six tabs + pushed tools, Home's health-tools section noted, new `profile_edit_screen.dart` entry. This docs commit |
+
 
 ## SRS ↔ code disagreements (`requirements.md`)
 

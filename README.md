@@ -106,36 +106,45 @@ The app is designed with South Asian users in mind, offering culturally sensitiv
 ```
 wellness_saheli/                  ← Flutter frontend
 ├── lib/
-│   ├── main.dart                 ← App entry point
+│   ├── main.dart                 ← App entry point + provider wiring
 │   ├── config/
-│   │   └── api_config.dart       ← Base URL and API constants
+│   │   ├── api_config.dart       ← Base URL and API constants
+│   │   └── disclosures.dart      ← AI/privacy disclosure text
+│   ├── l10n/                     ← Language provider, global EN/UR pill,
+│   │   │                           translated Text wrapper + phrase table
 │   ├── models/
-│   │   ├── health_profile.dart   ← All data models (single source of truth)
+│   │   ├── health_profile.dart   ← All profile models (JSON + copyWith)
 │   │   └── ai_response.dart      ← AI response model
 │   ├── providers/
-│   │   └── cycle_provider.dart   ← Cycle state + auth logic
+│   │   └── cycle_provider.dart   ← Cycle state + local persistence
 │   ├── services/
-│   │   ├── health_profile_service.dart  ← Load/save health profile
+│   │   ├── health_profile_service.dart  ← Load/save/sync health profile
+│   │   ├── auth_session.dart            ← Session + token handling
 │   │   ├── ai_service.dart              ← AI chat API calls
+│   │   ├── safety_filter.dart           ← Crisis/safety keyword filter
 │   │   ├── pcos_api_service.dart        ← PCOS prediction API calls
-│   │   └── eligibility_api_service.dart ← MEC eligibility API calls
-│   ├── screens/
-│   │   ├── splash_screen.dart
-│   │   ├── home_screen.dart
-│   │   ├── ai_checkin_screen.dart
-│   │   ├── pcos_screen.dart
-│   │   ├── protection_screen.dart
-│   │   ├── ovulation_screen.dart
-│   │   ├── health_diary_screen.dart
-│   │   └── settings_screen.dart
-│   └── theme/
-│       └── app_theme.dart        ← Colors, text styles, theme
-
-wellness-saheli-server/           ← Python backend
-├── app.py / server.py            ← Main server file
-├── pcos_model/                   ← ML model files
-├── requirements.txt
-└── .env                          ← API keys and config
+│   │   ├── eligibility_api_service.dart ← MEC eligibility API calls
+│   │   ├── chat_nav_hints.dart          ← "Take me to…" chat navigation
+│   │   ├── chat_profile_updates.dart    ← Allow-listed AI profile writes
+│   │   ├── secure_store.dart            ← flutter_secure_storage wrapper
+│   │   └── support_resources.dart       ← Help resources shown in-app
+│   ├── screens/                  ← One file per screen: home_shell (6-tab
+│   │                               shell), home, cycle/ovulation/protection,
+│   │                               pcos, endo, learn, ai_checkin, diary,
+│   │                               profile_edit, settings, data_privacy,
+│   │                               cycle_data, about, terms, sign_in/up,
+│   │                               verify_email, forgot_password, splash
+│   ├── theme/
+│   │   └── app_theme.dart        ← Colors, text styles, theme
+│   ├── utils/
+│   │   └── app_dates.dart        ← Date formatting/parsing helpers
+│   └── widgets/                  ← Shared UI: ToolPage, cards, calendar,
+│                                   diary dialog, sync badge, animations
+├── test/                         ← Widget + model + service tests
+├── docs/                         ← Review record, open questions, backend
+│                                   TODO, nav proposal, guides
+└── lib/server/requirement.txt    ← Legacy server requirements note (the
+                                    Python backend lives outside this repo)
 ```
 
 ---

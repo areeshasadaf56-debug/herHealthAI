@@ -236,7 +236,7 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | FR-81 | The system shall present a unified, reverse-chronological timeline merging PCOS results, contraception changes, eligibility checks, cycle logs, and AI conversations. | `health_diary_screen.dart` |
 | FR-82 | The diary shall show summary counts (PCOS checks, methods logged, cycle entries, AI check-ins) and a Timeline/Profile tab switch. | same |
 | FR-83 | The Profile tab shall display four sections — Demographics, Lifestyle, Reproductive Health, Wellbeing — showing "Not set" for null values, plus a "Last updated" line. | `_buildProfileTab` |
-| FR-84 | **[GAP]** The Profile tab is **read-only**. There is no screen anywhere in the app that lets a user directly edit demographics, lifestyle, or wellbeing fields. These can currently be populated only indirectly (AI tool calls, and — once FR-21 is fixed — the PCOS form). A direct profile-edit screen **shall** be added. | — |
+| FR-84 | **[FIXED]** Direct profile editing exists: `profile_edit_screen.dart` edits demographics (age/weight/height/marital status), lifestyle (exercise switch + frequency, diet, fast food, sleep hours, notes), cycle regularity, and wellbeing (stress 1–5, notes). Every field is optional and clearing one stores `null`. Numeric fields validate server-matched ranges (age 10–100, weight 20–350 kg, height 100–250 cm, sleep 0–24) and write through `HealthProfileService.updateProfile`, so the Profile tab, Home and the AI tab refresh live. Reached from Settings → Health → Health Profile (Edit) and the Health Diary's Profile tab ("Edit profile"). Fields owned elsewhere stay read-only here (cycle length = Cycle tracker, current method = Protection tab, last check-in = AI). Test: `test/profile_edit_test.dart`. (was [GAP]) | `lib/screens/profile_edit_screen.dart`, `lib/screens/settings_screen.dart`, `lib/screens/health_diary_screen.dart` |
 | FR-85 | The system shall support free-text diary entries with date, optional mood, symptom tags, and body text. | `DiaryEntry`, `diary_entry_dialog.dart` |
 | FR-86 | **[FIXED]** The user shall be able to delete their entire stored profile. *(Closed in review pass 1: the Data & Privacy screen has a "delete my data from the server" action that waits for any in-flight save, treats 404 as already-deleted, and clears the stored token on 401. Server account deletion itself is still a backend gap — see `docs/BACKEND_TODO.md`.)* | `deleteServerProfile`, `data_privacy_screen.dart` |
 
@@ -354,7 +354,7 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | `CycleData` | `lastPeriodStart: DateTime`, `cycleLength: int` (default 28), `periodDuration: int` (default 5) |
 | `DailyLog` | `isPeriodDay: bool`, `mood: String?`, `symptoms: List<String>`, `flowIntensity: String?` |
 
-**Design note:** every sub-object implements `copyWith`, `toJson`, and `fromJson`. All `copyWith` methods use `value ?? this.value`, which means **a field cannot be set back to null via copyWith** — a known constraint to be aware of when implementing profile editing (FR-84).
+**Design note:** every sub-object implements `copyWith`, `toJson`, and `fromJson`. The nested `copyWith` methods use a private `_unset` sentinel: **omitting** a parameter keeps the current value, while passing `null` explicitly **clears** it — which is how the profile editor (FR-84) supports "Not set". (`HealthProfile.copyWith` itself uses plain nullable parameters that keep the old value when omitted.)
 
 ---
 
@@ -490,7 +490,7 @@ Ordered by priority. This is the actionable backlog.
 
 ### P1 — Data correctness
 1. **FR-21 / AC-22 — PCOS form inputs are never persisted.** `_runDetection()` in `pcos_screen.dart` calls `appendPcosResult()` with only the result. Age, weight, height, cycle regularity, and cycle length are discarded, leaving Demographics and Reproductive Health permanently "Not set". Fix: write these back via `HealthProfileService.updateProfile()` in the same success path.
-2. **FR-84 — No profile editing UI exists.** Add a screen allowing direct edit of demographics, lifestyle, and wellbeing fields. Note the `copyWith` null constraint (§9.2).
+2. ~~**FR-84 — No profile editing UI exists.**~~ **Done (Phase 9):** `profile_edit_screen.dart` plus entry points in Settings and the Health Diary's Profile tab; values write through `updateProfile` and empty input clears a field (the nested `copyWith` sentinel supports this — see §9.2).
 
 ### P2 — Safety gaps vs. stated requirements
 3. **AI-08 — Crisis detection is not deterministic.** v1.0 required a keyword-based check independent of model behaviour. Implement a pre-filter that runs before the Groq call and can set `crisis_concern` on its own.
