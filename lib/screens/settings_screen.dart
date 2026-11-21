@@ -10,6 +10,7 @@ import 'terms_screen.dart';
 import 'data_privacy_screen.dart';
 import 'sign_in_screen.dart';
 import 'health_diary_screen.dart'; // ← NEW IMPORT
+import 'profile_edit_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -80,6 +81,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const HealthDiaryScreen(),
+                    ),
+                  );
+                },
+              ),
+              // SRS FR-84: direct profile editor (the Diary's Profile
+              // tab links here too).
+              _settingsRow(
+                context,
+                Icons.person_outline,
+                'Health Profile',
+                'Edit',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileEditScreen(),
                     ),
                   );
                 },

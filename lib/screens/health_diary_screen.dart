@@ -9,6 +9,7 @@ import '../utils/app_dates.dart';
 import '../widgets/app_animations.dart';
 import '../widgets/diary_entry_dialog.dart';
 import '../widgets/profile_sync_badge.dart';
+import 'profile_edit_screen.dart';
 
 /// Unified entry type so PCOS results, contraception changes, AI
 /// conversation turns, written journal entries, and cycle logs (period
@@ -971,11 +972,38 @@ class _HealthDiaryScreenState extends State<HealthDiaryScreen> {
         ),
       ]),
       const SizedBox(height: 16),
-      Center(
-        child: Text(
-          'Last updated: ${_formatDate(p.lastUpdated)}',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-        ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Last updated: ${_formatDate(p.lastUpdated)}',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+          ),
+          const SizedBox(width: 8),
+          // SRS FR-84: the Profile tab is no longer read-only.
+          TextButton(
+            key: const ValueKey('diary-edit-profile'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
+              );
+            },
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(44, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Edit profile',
+              style: AppTextStyles.sans(
+                size: 11,
+                weight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     ];
   }
