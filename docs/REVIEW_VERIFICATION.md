@@ -111,6 +111,14 @@ reviewer saw). `file:line` was read on this tree.
 | 9.2 Tests | **Done** | `test/profile_edit_test.dart`: blank profile → enter 30/58/162 → save pops with snackbar, values land in `health_profile_cache_*` JSON (`age_yrs` 30, `weight_kg` 58, `height_cm` 162) and reload through the service; age 5 is rejected with "Must be between 10 and 100" and writes nothing. Suite 76/76. Commit `6bbfaa9` |
 | 9.3 Docs | **Done** | `requirements.md` FR-84 → **[FIXED]** with entry points/tests; stale §9.2 note ("cannot clear via copyWith") corrected to the `_unset` sentinel semantics; backlog item struck. README project structure rebuilt to match the real `lib/` tree (was missing `endo`, `learn`, `sign_in/up`, `verify_email`, `forgot_password`, `data_privacy`, `home_shell`, `profile_edit`, `l10n/`, `widgets/`, `test/`, `docs/`). Developer guide: `home_shell` corrected to six tabs + pushed tools, Home's health-tools section noted, new `profile_edit_screen.dart` entry. This docs commit |
 
+## Phase 10 — blank screen + PCOS persistence
+
+| ID | Status | Evidence |
+| --- | --- | --- |
+| 10.1 Blank-screen fix | **Done** | Root cause was the bottom nav, not the body: its bare `Center` expanded to the full height Scaffold allows, so the bar filled the viewport and the tab body was laid out at **0px** (nav painted, content blank). `Center(heightFactor: 1.0)` shrink-wraps the bar to its ~66dp row; the body also pins its content to the available height via `LayoutBuilder` + `SizedBox`. Measured in-test: body 521px, nav 66px at 800×600. Commit `ad2b541` |
+| 10.2 Regression test | **Done** | `test/shell_nav_test.dart` asserts the `IndexedStack` body is taller than 0 (and at least 400px) after the shell mounts, so a collapsed body fails the suite instead of silently shipping. Suite 77/77. Commit `ad2b541` |
+| 10.3 FR-21 persistence | **Done** | The success path already funnels the diary append and the form inputs through one atomic `updateProfile` write (`_saveCheckToDiary`): age/weight/height → Demographics, cycle regularity/length → ReproductiveHistory, exercise/fast food → Lifestyle. `test/pcos_persistence_test.dart` stubs `/predict`, fills all 15 fields, runs detection, and asserts the saved profile. `requirements.md` FR-21/AC-22 updated. This commit |
+
 
 ## SRS ↔ code disagreements (`requirements.md`)
 
@@ -119,7 +127,7 @@ Raised at review start; every item was closed or re-recorded in Phase 6
 
 - **FR-79** (background save, never block UI) — **closed**: `updateProfile` writes local first and queues the push; retried on next load.
 - **FR-94** (640px cap) — **closed**: `home_shell.dart` wraps the tab stack and nav row in `Center` + `ConstrainedBox(maxWidth: 640)`.
-- **FR-95** (bounded height via `LayoutBuilder`, marked `[FIXED]` vs `home_shell.dart`) — **re-recorded**: no `LayoutBuilder` exists; the `Scaffold` body provides the bounded height and the SRS note was corrected.
+- **FR-95** (bounded height via `LayoutBuilder`, marked `[FIXED]` vs `home_shell.dart`) — **closed in Phase 10**: `home_shell.dart` now pins the tab body with `LayoutBuilder` + `SizedBox`, and the nav bar shrink-wraps instead of expanding to full height.
 - **FR-86** (delete whole profile) — **closed client-side**: `deleteServerProfile` is wired from the Data & Privacy screen; server-side account deletion remains a backend gap (`docs/BACKEND_TODO.md`).
 - **SEC-12** (`[OPEN]` no ownership proof) — **closed**: password reset requires an emailed 6-digit code.
 - **SEC-16** — **partial**: in-app disclosure ships via `lib/config/disclosures.dart`; provider name + terms review stay an owner item (`docs/BACKEND_TODO.md` gap 3).

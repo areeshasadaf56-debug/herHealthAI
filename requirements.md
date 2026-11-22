@@ -134,7 +134,7 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | FR-18 | The system shall report which trained model produced the prediction (`model_metadata.json::model_name` — currently **RandomForest**, calibrated). | `/predict` response |
 | FR-19 | Prediction output labels shall be exactly `"PCOS Detected"` / `"No PCOS Detected"`; probability shall be the class-1 probability rounded to 4 decimals. | `predict()` |
 | FR-20 | Each completed PCOS check shall be appended to `pcosHistory` in the user's profile with date, prediction, probability, and model name. | `appendPcosResult` |
-| FR-21 | **[BUG — MUST FIX]** The PCOS form collects age, weight, height, cycle regularity, and cycle length, but `_runDetection()` currently saves **only** the result — never these input values. Consequently `Demographics` and parts of `ReproductiveHistory` remain permanently "Not set" in the Profile view no matter how many checks are run. The form's inputs **shall** be written back to `profile.demographics` and `profile.reproductiveHistory` on each successful run. | `pcos_screen.dart::_runDetection` |
+| FR-21 | **[FIXED]** On each successful detection the form inputs are written back in the same atomic profile write that appends the check to history: age/weight/height → `profile.demographics`, cycle regularity/length → `profile.reproductiveHistory`, exercise/fast food → `profile.lifestyle`. The result is shown first; a failed save surfaces a snackbar instead of failing silently. Test: `test/pcos_persistence_test.dart` runs a stubbed `/predict` and asserts the values land in the profile. (was [BUG - MUST FIX]) | `pcos_screen.dart::_runDetection`, `pcos_screen.dart::_saveCheckToDiary` |
 | FR-22 | The PCOS form shall pre-populate age/weight/height from the stored profile when those fields are empty and profile values exist. | `pcos_screen.dart` (lines ~82–93) |
 
 ### 5.4 Contraceptive Eligibility
@@ -252,7 +252,7 @@ There is **no** admin or clinician role. There is no mechanism for any user to v
 | FR-92 | The system shall provide a data & privacy screen explaining what is stored and where. | `data_privacy_screen.dart` |
 | FR-93 | The app shell shall present **6 tabs** — Cycle, Ovu, Prot, Learn, Set, Chat — via an `IndexedStack` preserving each tab's state across switches. *(Phase 8: PCOS and Endo left the bar under the Phase 7 navigation decision; they open from Home's health-tools cards, the More sheet, or AI nav hints as pushed full-screen tools. Formerly 8 tabs.)* | `home_shell.dart`, `home_screen.dart` |
 | FR-94 | **[FIXED]** Tab content shall be constrained to a max width of **640 px** and centred, for readable layout on wide screens. *(Closed in review pass 1: `Center` + `ConstrainedBox(maxWidth: 640)` wraps both the tab stack and the bottom nav row.)* | `home_shell.dart` |
-| FR-95 | **[FIXED]** The tab content area shall be given an explicitly bounded height rather than relying on ambient constraints, which could silently collapse to zero height and render a blank screen with no error. *(Note: the earlier "via `LayoutBuilder`" wording described a widget that is not in the code — the tab stack lives in the `Scaffold` body, which always receives bounded height.)* | `home_shell.dart` |
+| FR-95 | **[FIXED]** The tab content area is given an explicitly bounded height rather than relying on ambient constraints, and the bottom nav bar now shrink-wraps its row instead of expanding to the full scaffold height (a bare `Center` in the nav consumed the whole viewport and left the body at 0px - the blank-screen bug). `LayoutBuilder` pins the body to the available height; `test/shell_nav_test.dart` asserts a non-zero body height. | `home_shell.dart` |
 
 ---
 
@@ -478,7 +478,7 @@ WSGI entry point → `main_flask.py::app`, which registers `health_profile_bp` a
 | AC-19 | FR-68, FR-69 | Enter sends; Shift+Enter inserts a newline. |
 | AC-20 | FR-36 | A turn that triggers `record_checkin_insights` still renders a non-empty assistant bubble. |
 | AC-21 | AI-03 | A message containing crisis-indicating language returns `crisis_concern: true` **and** the app surfaces real crisis-line resources. |
-| AC-22 | FR-21 | After running a PCOS check, the Diary's Profile tab shows the entered age, weight, and height — **not** "Not set". *(Currently failing.)* |
+| AC-22 | FR-21 | After running a PCOS check, the Diary's Profile tab shows the entered age, weight, and height - **not** "Not set". *(Verified by `test/pcos_persistence_test.dart`.)* |
 | AC-23 | FR-93 | Switching tabs and returning preserves each tab's scroll position and form state. |
 | AC-24 | NFR-02 | `/predict` responds in under 1 second measured server-side. |
 
@@ -489,7 +489,7 @@ WSGI entry point → `main_flask.py::app`, which registers `health_profile_bp` a
 Ordered by priority. This is the actionable backlog.
 
 ### P1 — Data correctness
-1. **FR-21 / AC-22 — PCOS form inputs are never persisted.** `_runDetection()` in `pcos_screen.dart` calls `appendPcosResult()` with only the result. Age, weight, height, cycle regularity, and cycle length are discarded, leaving Demographics and Reproductive Health permanently "Not set". Fix: write these back via `HealthProfileService.updateProfile()` in the same success path.
+1. ~~**FR-21 / AC-22 - PCOS form inputs are never persisted.**~~ **Done (Phase 10):** `_saveCheckToDiary()` now performs one atomic `updateProfile` write that appends the result *and* saves age, weight, height, cycle regularity/length, exercise and fast food. Regression test: `test/pcos_persistence_test.dart`.
 2. ~~**FR-84 — No profile editing UI exists.**~~ **Done (Phase 9):** `profile_edit_screen.dart` plus entry points in Settings and the Health Diary's Profile tab; values write through `updateProfile` and empty input clears a field (the nested `copyWith` sentinel supports this — see §9.2).
 
 ### P2 — Safety gaps vs. stated requirements
