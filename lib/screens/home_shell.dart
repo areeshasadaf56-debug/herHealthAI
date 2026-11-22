@@ -131,27 +131,46 @@ class _HomeShellState extends State<HomeShell>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        // Task 2.3: content cap. On phones (and anything narrower) the
-        // screens keep filling the available width; on tablets/desktop
-        // the readable column is centered at 640px instead of
-        // stretching edge to edge.
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: FadeTransition(
-              opacity: Tween<double>(
-                begin: 0.55,
-                end: 1.0,
-              ).animate(_switchAnimation),
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.012),
-                  end: Offset.zero,
-                ).animate(_switchAnimation),
-                child: IndexedStack(index: _tabIndex, children: tabs),
+        // A tab body with no bounded height renders blank -- the nav bar
+        // still paints, but the content silently collapses to nothing.
+        // SafeArea does not always pass a finite height down (web, and
+        // some parent layouts, hand the body unbounded constraints), so
+        // pin the content to the real viewport height here. This is the
+        // blank-screen fix (ported from e87c7fd) on top of the 6-tab
+        // shell; test/shell_nav_test.dart asserts a non-zero height.
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final availableHeight = constraints.hasBoundedHeight
+                ? constraints.maxHeight
+                : MediaQuery.of(context).size.height;
+
+            // Task 2.3: content cap. On phones (and anything narrower)
+            // the screens keep filling the available width; on
+            // tablets/desktop the readable column is centered at 640px
+            // instead of stretching edge to edge.
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: SizedBox(
+                  height: availableHeight,
+                  width: double.infinity,
+                  child: FadeTransition(
+                    opacity: Tween<double>(
+                      begin: 0.55,
+                      end: 1.0,
+                    ).animate(_switchAnimation),
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.012),
+                        end: Offset.zero,
+                      ).animate(_switchAnimation),
+                      child: IndexedStack(index: _tabIndex, children: tabs),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
       bottomNavigationBar: Container(
@@ -164,7 +183,14 @@ class _HomeShellState extends State<HomeShell>
           top: false,
           // Same 640px cap as the body so the nav row doesn't smear one
           // item into every corner of a desktop window.
+          //
+          // heightFactor: 1.0 is load-bearing. A bare Center expands to
+          // the biggest allowed size, and Scaffold hands the bottom bar
+          // a full-height bound -- so the bar grew to the whole screen
+          // and squeezed the body to 0px (the blank-screen bug).
+          // Shrink-wrapping the height keeps the bar as tall as its row.
           child: Center(
+            heightFactor: 1.0,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
               child: Row(

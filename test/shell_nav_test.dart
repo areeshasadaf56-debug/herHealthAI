@@ -90,6 +90,23 @@ void main() {
     IndexedStack stack() =>
         tester.widget<IndexedStack>(find.byType(IndexedStack));
 
+    // ---- Regression: the tab body must keep a real, non-zero height. --
+    // The blank-screen bug shows the nav bar painting while the body
+    // collapses to nothing, because the tab stack was laid out with an
+    // unbounded/zero height. HomeShell now pins the content to the
+    // viewport height, so this guards against a silent regression.
+    final bodySize = tester.getSize(find.byType(IndexedStack));
+    expect(
+      bodySize.height,
+      greaterThan(0),
+      reason: 'tab body collapsed to zero height (blank-screen bug)',
+    );
+    expect(
+      bodySize.height,
+      greaterThanOrEqualTo(400),
+      reason: 'tab body is far shorter than the viewport',
+    );
+
     await tester.tap(find.byKey(const ValueKey('nav-Learn')));
     await tester.pumpAndSettle();
     expect(stack().index, 3);
@@ -129,9 +146,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('MORE HEALTH TOOLS'), findsOneWidget);
 
-    tester
-        .widget<ListTile>(find.byKey(const ValueKey('sheet-endo')))
-        .onTap!();
+    tester.widget<ListTile>(find.byKey(const ValueKey('sheet-endo'))).onTap!();
     await tester.pumpAndSettle();
     expect(find.byType(EndoScreen), findsOneWidget);
   });
