@@ -47,3 +47,40 @@ diary entries, and privacy settings.
    release: the real provider name (replaces the `// OWNER:` placeholder
    in `lib/config/disclosures.dart`) and a review of that provider's
    terms for health-data processing.
+
+## Live AI chat — retired Groq model (2026-11)
+
+**Symptom:** the Chat tab answers with a generic "couldn't reach the AI
+service" bubble.
+
+**Diagnosis (verified):**
+- `POST https://areeshasadaf56.pythonanywhere.com/chat` is reachable:
+  an unauthenticated request returns `401`, and the CORS preflight
+  allows the web origin. The route itself is fine.
+- A freshly generated Groq key is valid (`GET /models` succeeds and a
+  tool-calling smoke test passes).
+- `llama-3.3-70b-versatile` — the model the deployed backend used — has
+  been retired by Groq and now returns `404 model_not_found`. That makes
+  every `/chat` call fail.
+
+**Fix (in the local backend checkout):**
+- `chat_api.py` and `app_backend/chat.py` now use
+  `openai/gpt-oss-120b`, which is in the account's `/models` list and
+  passes a tool-calling smoke test. `max_tokens` stays at 800; gpt-oss
+  spends some tokens on reasoning, so very low limits return an empty
+  reply.
+- `GROQ_API_KEY` is set in the backend's gitignored `.env`, and
+  `.vscode/launch.json` starts `main_flask.py` with that file.
+
+**Deployment (owner, PythonAnywhere):**
+1. Upload/replace `chat_api.py` (and `app_backend/chat.py` if the
+   FastAPI app is what is deployed), or `git pull` if the web app is a
+   checkout of the repo.
+2. Set `GROQ_API_KEY` in the web app's environment (WSGI file) or in a
+   `.env` next to `main_flask.py`. Never commit the key and never ship
+   it in the Flutter app.
+3. Reload the web app, then send a chat message from a signed-in
+   account.
+
+The Flutter client needs no change: it already points at
+`ApiConfig.baseUrl` and maps a `401` to "session expired".
